@@ -6,8 +6,8 @@ using static AYellowpaper.SerializedCollections.SerializedDictionarySample;
 [CreateAssetMenu(fileName = "New CommonConfig", menuName = "CommonConfig")]
 public class CommonConfig : ScriptableObject
 {
-    [SerializedDictionary("Element Type", "Description")]
-    public SerializedDictionary<string, GameObject> Datas;
+    [SerializedDictionary("Key", "Variant")]
+    public SerializedDictionary<string, Variant> Datas;
 }
 
 
