@@ -1,8 +1,12 @@
 ﻿
 using System;
 using Unity.VisualScripting;
+
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.UIElements;
+#endif
+
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
@@ -55,49 +59,8 @@ public static class VariableTypeTemplate
 }
 
 
-public class NewBehaviourScript : MonoBehaviour
-{
-    public Variant mV;
-    private void Awake()
-    {
-        Debug.Log(mV.Get<float>());
-    }
 
-}
-
-//[CustomEditor(typeof(Variant))]
-//public class VariantEditor : Editor
-//{
-//    SerializedProperty mValueString;
-//    SerializedProperty mObject;
-//    SerializedProperty mType;
-
-//    void OnEnable()
-//    {
-//        mValueString = serializedObject.FindProperty("mValueString");
-//        mType = serializedObject.FindProperty("mType");
-//        mObject = serializedObject.FindProperty("mObject");
-//    }
-
-//    public override void OnInspectorGUI()
-//    {
-//        serializedObject.Update();
-//        EditorGUILayout.PropertyField(mType);
-//        var vType = (VariantType)mType.enumValueIndex;
-//        switch (vType)
-//        {
-//            case VariantType.Bool:
-//            {
-//                var outVar = JsonUtility.FromJson<bool>(mValueString.stringValue);
-//                outVar = EditorGUILayout.Toggle("Value", outVar);
-//                mValueString.stringValue = JsonUtility.ToJson(outVar);
-//                break;
-//            }
-
-//        }
-//        serializedObject.ApplyModifiedProperties();
-//    }
-//}
+#if UNITY_EDITOR
 
 [CustomPropertyDrawer(typeof(Variant))]
 public class SerializedVarintEditor : PropertyDrawer
@@ -178,6 +141,7 @@ public class SerializedVarintEditor : PropertyDrawer
         EditorGUI.EndProperty();
     }
 }
+#endif
 
 [Serializable]
 public class Variant : ISerializationCallbackReceiver
@@ -242,13 +206,28 @@ public class Variant : ISerializationCallbackReceiver
         mType = VariantType.Vector4;
     }
 
-    public T Get<T>()
+    public T Get<T>() where T : class
     {
         if (typeof(T).GetVariantType() == mType)
         {
             return (T)mValue;
         }
         throw new Exception("Type mismatch");
+    }
+    
+    void FromJson<T>()
+    {
+        try
+        {
+            mValue = JsonUtility.FromJson<T>(mValueString);
+
+        }
+        catch (Exception e)
+        {
+            mValue = default(T);
+            EnhancedLog.LogError(e.Message);
+            throw;
+        }
     }
 
     public void OnBeforeSerialize()
@@ -274,74 +253,25 @@ public class Variant : ISerializationCallbackReceiver
         switch (mType)
         {
             case VariantType.Int:
-                try
-                {
-                    mValue = JsonUtility.FromJson<int>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(int);
-                }
+                FromJson<int>();
                 break;
             case VariantType.Bool:
-                try
-                {
-                    mValue = JsonUtility.FromJson<bool>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(bool);
-                }
+                FromJson<bool>();
                 break;
             case VariantType.Float:
-                try
-                {
-                    mValue = JsonUtility.FromJson<float>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(float);
-                }
+                FromJson<float>();
                 break;
             case VariantType.String:
-                try
-                {
-                    mValue = JsonUtility.FromJson<string>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(string);
-                }
+                FromJson<string>();
                 break;
             case VariantType.Vector2:
-                try
-                {
-                    mValue = JsonUtility.FromJson<Vector2>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(Vector2);
-                }
+                FromJson<Vector2>();
                 break;
             case VariantType.Vector3:
-                try
-                {
-                    mValue = JsonUtility.FromJson<Vector3>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(Vector3);
-                }
+                FromJson<Vector3>();
                 break;
             case VariantType.Vector4:
-                try
-                {
-                    mValue = JsonUtility.FromJson<Vector4>(mValueString);
-                }
-                catch (Exception e)
-                {
-                    mValue = default(Vector4);
-                }
+                FromJson<Vector4>();
                 break;
             case VariantType.UnityObject:
                 mValue = mObject;

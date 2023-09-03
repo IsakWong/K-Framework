@@ -1,16 +1,5 @@
 ﻿using System;
 
-public enum VariableType
-{
-    None,
-    Int,
-    Float,
-    Bool,
-    Double,
-    String,
-    GameObject,
-    Component
-}
 /// <summary>
 /// 变量。
 /// </summary>
