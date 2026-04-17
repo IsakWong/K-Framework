@@ -1,0 +1,31 @@
+{
+  "name": "com.isakwong.kframework",
+  "version": "1.6.0",
+  "displayName": "KFramework",
+  "description": "A modular Unity game framework for 2D/3D games. Provides Service Locator, Singleton, EventBus, FSM, Object Pool, Sound System, UI Management, Behavior Tree, and more.",
+  "unity": "2021.3",
+  "documentationUrl": "https://github.com/isakwong/KFramework",
+  "changelogUrl": "https://github.com/isakwong/KFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/isakwong/KFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "game",
+    "architecture",
+    "service-locator",
+    "fsm",
+    "object-pool",
+    "event-bus",
+    "sound",
+    "ui"
+  ],
+  "author": {
+    "name": "isakwong",
+    "url": "https://github.com/isakwong"
+  },
+  "dependencies": {
+    "com.unity.inputsystem": "1.4.0",
+    "com.unity.addressables": "1.19.0",
+    "com.unity.textmeshpro": "3.0.0"
+  },
+  "samples": []
+}
