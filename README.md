@@ -207,13 +207,13 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 | 目录 | 说明 |
 |---|---|
-| `ObjectPool/` | `TObjectPool<T>` — MonoBehaviour 对象池 (基于 Unity ObjectPool) |
+| `ObjectPool/` | `GameObjectPool` (单 Prefab 池 + IPoolable 回调) · `PoolManager` (多 Prefab 注册中心 + 实例跟踪) · `CSharpPool<T>` (纯 C# 泛型池) · `ListPool/DictionaryPool/HashSetPool` 集合池 |
 | `Attributes/` | `[AutoBind]` 自动绑定组件 + `[DisplayName]` 编辑器显示名 |
 | `JsonConverter/` | Newtonsoft.Json 的 Unity 类型转换器 (Vector/Quaternion/Addressables 等) |
-| `Audio/` | `AudioConfig` 音频配置 |
+| `Audio/` | `AudioConfig` 音频配置 ScriptableObject (Mixer 参数名、SoundCategory 预设) |
 | `SerializedCollections/` | 可序列化字典 |
 | `Utils/` | `AutoRotate` / `RandomAudioClip` 工具组件 |
-| `Testing/` | `Tests` 简易单元测试 (Signal + PersistentData) |
+| `Tests/` | 简易单元测试 (Signal + PersistentData) |
 | `Editor/` | 自定义 Inspector、PropertyDrawer、编辑器工具 |
 
 ---
@@ -227,6 +227,7 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 | 1 | **InputManager (输入管理)** | `ControllerBase` 引用了 Unity InputSystem 但无统一输入管理层。缺少输入映射切换、按键重绑定、多设备支持、输入缓冲 | 封装 InputSystem 的 `PlayerInput`，提供 `IInputService` 接口，支持 Action Map 切换和运行时重绑定 |
 | 2 | **NetworkManager (网络模块)** | 完全无网络代码。联机游戏需要 HTTP 请求、WebSocket、状态同步/帧同步 | 至少提供 `INetworkService` 抽象 + HTTP 客户端 (UnityWebRequest 封装)；高级可选 WebSocket/Netcode |
 | 3 | **异步任务管理** | `AssetManager` 用了 async/await 但无统一的异步任务管理。缺少取消 (CancellationToken)、超时、重试、并发控制 | 提供 `AsyncTaskRunner`：支持 CancellationToken 传播、超时包装、并发限制队列 |
+| 4 | **命名空间规范化** | 154 个文件使用 `Framework.*`，但仍有部分类在全局命名空间 | 统一为 `KFramework.*` 命名空间层级 |
 
 ### 🟡 中优先级 — 正式上线前应补全
 
@@ -280,11 +281,13 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 ```
 Phase 1 (核心补全)         Phase 2 (质量提升)         Phase 3 (功能扩展)
  ├─ InputManager            ├─ 命名空间规范化           ├─ 本地化模块
- ├─ C# 通用对象池           ├─ 单元测试覆盖             ├─ 红点系统
- ├─ 异步任务管理            ├─ GameMode 解耦业务        ├─ 引导系统
- └─ HTTP 网络客户端         └─ 路径配置化               ├─ Camera 管理增强
+ ├─ 异步任务管理            ├─ 单元测试覆盖             ├─ 红点系统
+ └─ HTTP 网络客户端         ├─ GameMode 解耦业务        ├─ 引导系统
+                            └─ 路径配置化               ├─ Camera 管理增强
                                                         └─ 热更新流程
 ```
+
+> ✅ **已完成**: C# 通用对象池 (v1.5.0) · 音频系统全面重构 (v1.6.0) · UPM 包结构 (v1.6.0)
 
 ---
 
@@ -310,46 +313,56 @@ Phase 1 (核心补全)         Phase 2 (质量提升)         Phase 3 (功能扩
 ## 六、目录结构
 
 ```
-Framework/
-├── Foundation/          # 基础层：单例、ServiceLocator、日志、定时器、数学扩展
-├── Core/                # 核心层：KGameCore、GameMode、TModule
-├── Subscriber/          # 信号系统：KSignal、Subscriber
-├── EventBus/            # 事件总线：全局类型路由
-├── Coroutine/           # 自定义协程系统
-├── Fsm/                 # 有限状态机
-├── BehaviorTree/        # 行为树 (Fluid BT)
-├── Cmd/                 # 命令队列
-├── Action/              # 动作序列
-├── Assets/              # 资源管理 (Addressables + AssetDatabase)
-├── Config/              # 配置管理 (ScriptableObject)
-├── UI/                  # UI 栈管理
-├── Sound/               # 音效/音乐管理
-├── Settings/            # 游戏设置
-├── PersistentData/      # 持久化存档
-├── Scene/               # 场景管理
-├── Debug/               # 调试工具
-├── Version/             # 版本信息
-├── ObjectPool/          # 对象池 (GameObjectPool/PoolManager/CSharpPool)
-├── FrameworkExt/        # 游戏扩展层 (Unit/Player/Vfx/HUD/Camera)
-├── Attributes/          # 特性 (AutoBind/DisplayName)
-├── JsonConverter/        # JSON 转换器
-├── Audio/               # 音频配置
-├── SerializedCollections/ # 可序列化字典
-├── Utils/               # 工具组件
-├── Testing/             # 单元测试
-└── Editor/              # 编辑器扩展
+KFramework/                      # UPM 包根目录
+├── package.json                 # UPM 包清单 (com.isakwong.kframework)
+├── LICENSE                      # MIT 许可证
+├── CHANGELOG.md                 # 版本变更日志
+├── README.md
+├── Runtime/                     # 运行时代码 (KFramework.asmdef)
+│   ├── Foundation/              #   基础层：单例、ServiceLocator、日志、定时器
+│   ├── Core/                    #   核心层：KGameCore、GameMode、TModule
+│   ├── Subscriber/              #   信号系统：KSignal、Subscriber
+│   ├── EventBus/                #   事件总线：全局类型路由
+│   ├── Coroutine/               #   自定义协程系统
+│   ├── Fsm/                     #   有限状态机
+│   ├── BehaviorTree/            #   行为树 (Fluid BT)
+│   ├── Cmd/                     #   命令队列
+│   ├── Action/                  #   动作序列
+│   ├── Assets/                  #   资源管理 (Addressables + AssetDatabase)
+│   ├── Config/                  #   配置管理 (ScriptableObject)
+│   ├── UI/                      #   UI 栈管理
+│   ├── Sound/                   #   音效/音乐 (SoundManager/SoundCategory/SoundEmitter)
+│   ├── Settings/                #   游戏设置
+│   ├── PersistentData/          #   持久化存档
+│   ├── Scene/                   #   场景管理
+│   ├── Debug/                   #   调试工具
+│   ├── Version/                 #   版本信息
+│   ├── ObjectPool/              #   对象池 (GameObjectPool/PoolManager/CSharpPool)
+│   ├── FrameworkExt/            #   游戏扩展层 (Unit/Player/Vfx/HUD/Camera)
+│   ├── Attributes/              #   特性 (AutoBind/DisplayName)
+│   ├── JsonConverter/           #   JSON 转换器
+│   ├── Audio/                   #   音频配置
+│   ├── SerializedCollections/   #   可序列化字典
+│   └── Utils/                   #   工具组件
+├── Editor/                      # 编辑器扩展 (KFramework.Editor.asmdef)
+├── Tests/                       # 测试 (KFramework.Tests.asmdef)
+│   └── Runtime/
+├── Documentation~/              # 设计文档 (Unity 忽略)
+└── Samples~/                    # 示例 (Unity 忽略)
 ```
 
 ---
 
 ## 七、变更记录
 
-| 版本 | 变更 |
+详见 [CHANGELOG.md](CHANGELOG.md)。
+
+| 版本 | 摘要 |
 |---|---|
-| **1.0.0** | 初始框架：KGameCore、GameMode、TModule、Signal/Subscriber、Timer、Coroutine、FSM、BT、Command、Action、UIManager、SoundManager、AssetManager、ConfigManager、PersistentDataManager、SettingsManager、DebugManager、VfxManager、ObjectPool |
-| **1.1.0** | Bug 修复 (RequireModule NullRef、KSignal Invoke 可见性、AssetManager 缓存)；统一 API 命名 |
-| **1.2.0** | 新增 KVersion 版本模块；新增 SceneManager (Addressables/Built-in、叠加场景、历史回退、过渡效果)；新增 EventBus (类型路由、优先级、粘性、一次性订阅) |
-| **1.3.0** | Service Locator 改造：ServiceLocator 静态注册中心 + 10 个服务接口 + 所有 Manager 接口化注册；修复 UIManager.Awake 漏调 base；SoundManager.MusicVolume 字段→属性 |
-| **1.4.0** | 日志系统重构：6 级日志 (Verbose/Debug/Info/Warning/Error/Fatal) + 模块 Tag 过滤 + 本地文件日志 (大小轮转、历史保留) + ILogService 接口 + 全部调用点迁移为结构化日志 |
-| **1.5.0** | 通用对象池重构：`GameObjectPool` (单 Prefab 池 + IPoolable 回调) + `PoolManager` (多 Prefab 注册中心 + 实例跟踪) + `CSharpPool<T>` (纯 C# 泛型池) + `ListPool/DictionaryPool/HashSetPool` 集合池；VfxManager/VfxAPI 全部迁移至 PoolManager；UnitBase 实现 IPoolable 支持对象池回收复用；IPoolService 接口 + ServiceLocator 注册 |
-| **1.6.0** | 音频系统全面重构：SoundData 新增 `maxConcurrent/cooldown/volumeDecayPerInstance/randomPitchRange` 并发控制字段；SoundEmitter 解耦 (`OnFinished` 回调替代硬引用)；SoundManager 新增 per-SoundData 并发跟踪 + 冷却 + 音量衰减 + AudioMixer 参数控制 (`SetMixerVolume/GetMixerVolume`) + Snapshot 过渡 + BGM Ducking (侧链压缩)；修复 PlayMusic 内存泄漏 (AudioSource 无限增长)；修复 PlaySoundLimitFrame 忽略 pos；修复 CrossFade 使用 deltaTime 而非 unscaledDeltaTime；AudioConfig 新增 Mixer 参数名配置；RandomAudioClip 初始化从 FixedUpdate 改为 OnEnable |
+| **1.6.0** | 音频系统全面重构 (SoundCategory/SoundData 双层架构 + Mixer API + BGM Ducking)；SoundEmitter 统一 PoolManager；UPM 包结构 |
+| **1.5.0** | 通用对象池 (GameObjectPool + PoolManager + CSharpPool + 集合池)；UnitBase opt-in 回收 |
+| **1.4.0** | 结构化日志系统 (6 级 + Tag 过滤 + 文件轮转) |
+| **1.3.0** | Service Locator + 12 个服务接口 |
+| **1.2.0** | EventBus 事件总线、SceneManager 场景管理、KVersion 版本模块 |
+| **1.1.0** | Bug 修复、API 规范化 |
+| **1.0.0** | 初始发布 |
