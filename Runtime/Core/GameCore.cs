@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using DG.Tweening;
 using Framework.JsonConverter;
-using Framework.Testing;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.UnityConverters.Math;
@@ -168,7 +167,7 @@ public class KGameCore
         if (inst is null)
         {
             Debug.LogError($"[KGameCore] Failed to create module: {name}");
-            Object.Destroy(GO);
+            UnityEngine.Object.Destroy(GO);
             return null;
         }
 
@@ -182,7 +181,7 @@ public class KGameCore
     }
 
     [Obsolete("Use KGameCore.GetSystem<T>() or GetModule<T>() instead")]
-    public T GetSystem<T>() where T : MonoBehaviour, IModule
+    public T GetSystemInstance<T>() where T : MonoBehaviour, IModule
     {
         return GetModule<T>();
     }
@@ -246,7 +245,6 @@ public class KGameCore
         Debug.Log("Static initialized");
         StaticInit();
 #endif
-        Tests.DoTest();
 
         Debug.Log("KGameCore initialized");
         DOTween.Init();

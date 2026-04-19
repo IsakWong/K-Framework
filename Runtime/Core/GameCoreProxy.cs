@@ -99,12 +99,4 @@ public class GameCoreProxy : MonoBehaviour
         yield return SceneManager.Instance.LoadSceneCoroutine(NextLevel, persistentData);
     }
 
-    /// <summary>
-    /// 使用UILoadingPanel加载场景的便捷方法
-    /// </summary>
-    [Obsolete("Use SceneManager.Instance.LoadSceneWithLoading() instead")]
-    public void LoadSceneWithLoadingPanel(AssetReference NextLevel, bool autoHideLoading, ScenePersistentData persistentData = null, Action onLoadComplete = null)
-    {
-        SceneManager.Instance.LoadSceneWithLoading(NextLevel, autoHideLoading, persistentData, onLoadComplete);
-    }
 }
