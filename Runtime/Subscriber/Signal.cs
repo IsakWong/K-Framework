@@ -35,17 +35,17 @@ public class Signal<TDelegate> : ISignal where TDelegate : Delegate
     /// <summary>
     /// 持久委托集合，每次 Invoke 时都会触发
     /// </summary>
-    public TDelegate _delegates;
+    protected TDelegate _delegates;
     
     /// <summary>
     /// 一次性委托集合，Invoke 后会被清空
     /// </summary>
-    public TDelegate _delegatesOnce;
+    protected TDelegate _delegatesOnce;
     
     /// <summary>
     /// 委托句柄映射表，用于通过 Guid 管理委托
     /// </summary>
-    public Dictionary<Guid, TDelegate> _handlesMap = new();
+    protected Dictionary<Guid, TDelegate> _handlesMap = new();
 
     /// <summary>
     /// 调用信号，触发所有已注册的回调（包括持久回调和一次性回调）
@@ -250,7 +250,7 @@ public class KSignal<T1, T2, T3> : Signal<Action<T1, T2, T3>>
 /// <typeparam name="T3">第三个参数类型</typeparam>
 /// <typeparam name="T4">第四个参数类型</typeparam>
 [Serializable]
-public class KAction<T1, T2, T3, T4> : Signal<Action<T1, T2, T3, T4>>
+public class KSignal<T1, T2, T3, T4> : Signal<Action<T1, T2, T3, T4>>
 {
     /// <summary>
     /// 调用信号，触发所有已注册的四参数回调（强类型，避免DynamicInvoke）
@@ -266,3 +266,9 @@ public class KAction<T1, T2, T3, T4> : Signal<Action<T1, T2, T3, T4>>
         _delegatesOnce = null;
     }
 };
+
+/// <summary>
+/// 向后兼容的别名（已废弃，请使用 KSignal&lt;T1,T2,T3,T4&gt;）
+/// </summary>
+[Obsolete("Use KSignal<T1,T2,T3,T4> instead")]
+public class KAction<T1, T2, T3, T4> : KSignal<T1, T2, T3, T4> { }

@@ -290,7 +290,7 @@ public class GameMode : MonoBehaviour
     /// <summary>
     /// 保存场景持久化数据（协程）
     /// </summary>
-    public virtual IEnumerable SavePersistentData()
+    public virtual IEnumerator SavePersistentData()
     {
         if (isSaving)
         {

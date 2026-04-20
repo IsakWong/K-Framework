@@ -1,6 +1,6 @@
 {
   "name": "com.isakwong.kframework",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "displayName": "KFramework",
   "description": "A modular Unity game framework for 2D/3D games. Provides Service Locator, Singleton, EventBus, FSM, Object Pool, Sound System, UI Management, Behavior Tree, and more.",
   "unity": "2021.3",

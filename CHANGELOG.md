@@ -3,6 +3,26 @@
 本文件记录 KFramework 的所有重要变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/)，
 版本号遵循 [语义化版本](https://semver.org/)。
 
+## [1.7.0] - 2026-04-18
+
+### 新增
+- **TModule.OnModuleLogic(float)** — 虚方法，子类可重写以实现每帧模块逻辑更新
+- **UnitComponent 生命周期回调** — `OnOwnerSpawn()` / `OnOwnerDie()`，由 UnitBase 自动调用
+- **UnitComponent.subscriber** — 内置 Subscriber，在 `End()` 时自动清理
+- **KTimer 进度属性** — `ElapsedTime`、`RemainingTime`、`Progress` (0~1)
+- **KSignal<T1,T2,T3,T4>** — 四参数信号统一命名为 KSignal（原 KAction 保留为 Obsolete 别名）
+
+### 变更
+- **Signal 字段封装** — `_delegates`、`_delegatesOnce`、`_handlesMap` 从 `public` 改为 `protected`
+- **UIPanel.OnHide()** 自动调用 `subscriber.DisconnectAll()`，防止信号泄漏
+- **UnitBase.RequireUnitComponent<T>()** 现在先查找已有组件，不存在时才创建（原来与 AddUnitComponent 行为完全相同）
+- **KTimerManager.OnLogic** 优化为单次反向遍历移除，消除双重 `_toRemove` 处理
+- **Module.GetData<T>()** 已移除（原来直接抛 NotImplementedException）
+- **Timer.cs** 移除无用的 `CleverCrow.Fluid.BTs` using 引用
+
+### 修复
+- **GameMode.SavePersistentData()** 返回类型从 `IEnumerable` 修正为 `IEnumerator`
+
 ## [1.6.0] - 2026-04-17
 
 ### 新增

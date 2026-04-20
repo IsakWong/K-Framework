@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using CleverCrow.Fluid.BTs.Tasks.Actions;
 using UnityEngine;
 
 
@@ -23,6 +22,21 @@ public class KTimer
 
     private float _interval;
     private float _elapsedTime;
+
+    /// <summary>
+    /// 当前已经过的时间
+    /// </summary>
+    public float ElapsedTime => _elapsedTime;
+
+    /// <summary>
+    /// 距离下次触发的剩余时间
+    /// </summary>
+    public float RemainingTime => Mathf.Max(0f, _interval - _elapsedTime);
+
+    /// <summary>
+    /// 当前周期的进度 (0~1)
+    /// </summary>
+    public float Progress => _interval > 0f ? Mathf.Clamp01(_elapsedTime / _interval) : 1f;
 
     public bool IsLooping => _loops < Loops || _loops < 0;
 
@@ -154,26 +168,28 @@ public class KTimerManager
 
     public void OnLogic(float logic)
     {
-        _toAdd.ForEach((timer) => { _internalTimers.Add(timer); });
-        _toAdd.Clear();
-        _toRemove.ForEach((timer) => { _internalTimers.Remove(timer); });
-        var logicTime = logic;
-        _toRemove.Clear();
-        _internalTimers.ForEach((timer) =>
+        // 合并新增和待移除
+        if (_toAdd.Count > 0)
         {
+            _internalTimers.AddRange(_toAdd);
+            _toAdd.Clear();
+        }
+        if (_toRemove.Count > 0)
+        {
+            foreach (var timer in _toRemove)
+                _internalTimers.Remove(timer);
+            _toRemove.Clear();
+        }
+        
+        var logicTime = logic;
+        for (int i = _internalTimers.Count - 1; i >= 0; i--)
+        {
+            var timer = _internalTimers[i];
             timer.OnLogic(logicTime);
-            if (timer.IsRemoving)
+            if (timer.IsRemoving || (timer.IsLooping && timer.IsFinished))
             {
-                _toRemove.Add(timer);
-                return;
+                _internalTimers.RemoveAt(i);
             }
-
-            if (timer.IsLooping && timer.IsFinished)
-            {
-                _toRemove.Add(timer);
-            }
-        });
-        _toRemove.ForEach((timer) => { _internalTimers.Remove(timer); });
-        _toRemove.Clear();
+        }
     }
 }

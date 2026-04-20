@@ -115,6 +115,7 @@ public class UIPanel : MonoBehaviour
     protected virtual void OnHide()
     {
         OnPanelHide?.Invoke();
+        subscriber.DisconnectAll();
         gameObject.SetActive(false);
         if(BGM)
             SoundManager.Instance.PopTrack();

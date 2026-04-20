@@ -155,10 +155,10 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
 
     public T RequireUnitComponent<T>() where T : UnitComponent
     {
-        var compGO = new GameObject(typeof(T).Name);
-        var t = compGO.AddComponent<T>();
-        InitUnitComponent(t);
-        return t;
+        var existing = GetUnitComponent<T>();
+        if (existing != null)
+            return existing;
+        return AddUnitComponent<T>();
     }
 
     public T GetUnitComponent<T>() where T : UnitComponent
@@ -239,6 +239,12 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
             SetLogicEnable(true);
         }
 
+        // 通知所有 UnitComponent
+        foreach (var comp in UnitComponents)
+        {
+            if (comp != null) comp.OnOwnerSpawn();
+        }
+
         OnUnitSpawn?.Invoke();
     }
 
@@ -309,8 +315,14 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
 
         SetLifecycleState(UnitLifecycleState.Dead);
         
-        // End all components
+        // 通知所有 UnitComponent
         var comps = UnitComponents.ToArray();
+        foreach (var comp in comps)
+        {
+            if (comp != null) comp.OnOwnerDie();
+        }
+        
+        // End all components
         foreach (var comp in comps)
         {
             if (comp != null) comp.End();

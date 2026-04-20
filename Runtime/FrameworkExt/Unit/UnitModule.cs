@@ -222,14 +222,8 @@ public class UnitModule : TModule<UnitModule>
     /// </summary>
     private void UpdateAllUnitsTimeScale()
     {
-        foreach (var unit in _units)
-        {
-            if (unit != null && !unit.IsDeleted)
-            {
-                // 注意：这里我们不直接覆盖 SelfTimeScale，而是提供一个新的属性来计算最终的时间缩放
-                // 这样每个 Unit 仍然可以有自己的 SelfTimeScale，同时受到全局缩放影响
-            }
-        }
+        // ScaledDeltaTime 是实时计算的属性（通过 GetFinalScaledDeltaTime），
+        // 此方法作为扩展点保留，用于未来需要在时间缩放变化时执行的额外逻辑
     }
     
     /// <summary>

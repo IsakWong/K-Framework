@@ -56,8 +56,14 @@ public class TModule<T> : MonoBehaviour, IModule  where T : MonoBehaviour, IModu
     public void OnLogic(float delta)
     {
         _coroutineHandler.TickFixedUpdate(delta);
-        // Default implementation does nothing
-        // Override this method in derived classes to implement logic updates
+        OnModuleLogic(delta);
+    }
+    
+    /// <summary>
+    /// 模块逻辑更新，子类可重写以实现每帧逻辑
+    /// </summary>
+    protected virtual void OnModuleLogic(float delta)
+    {
     }
     
     public KCoroutine ExecCoroutine(IEnumerator routine)
@@ -70,10 +76,5 @@ public class TModule<T> : MonoBehaviour, IModule  where T : MonoBehaviour, IModu
     public virtual void OnShutdown()
     {
         EnhancedLog.Info("Module", $"{GetType().Name} Shutdown");
-    }
-
-    public T GetData<T>(string name)
-    {
-        throw new NotImplementedException();
     }
 }
