@@ -8,5 +8,6 @@ namespace Framework.Settings
     {
         Settings CurrentSettings { get; }
         void LoadSettings();
+        void SaveSettings();
     }
 }
