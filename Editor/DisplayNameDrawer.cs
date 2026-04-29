@@ -4,7 +4,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace JASA.Editor
+namespace JASA
 {
     /// <summary>
     /// DisplayNameDrawer

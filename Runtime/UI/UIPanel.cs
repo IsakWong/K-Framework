@@ -56,6 +56,25 @@ public class UIPanel : MonoBehaviour
     [LabelText("隐藏特效")]
     public MMF_Player HideFx;
 
+    [LabelText("面板动画")]
+    [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 ShowFx/HideFx")]
+    public UIAnimation PanelAnimation;
+
+    // ShowFx/HideFx 自动包装缓存
+    private UIAnimationMMF _mmfAnimation;
+
+    private UIAnimation GetEffectiveAnimation()
+    {
+        if (PanelAnimation != null) return PanelAnimation;
+        if (UIManager.Instance?.PanelAnimation != null) return UIManager.Instance.PanelAnimation;
+        if (ShowFx != null || HideFx != null)
+        {
+            _mmfAnimation ??= new UIAnimationMMF(ShowFx, HideFx);
+            return _mmfAnimation;
+        }
+        return null;
+    }
+
     [LabelText("启动时显示")]
     public bool ShowOnStart = false;
 
@@ -108,12 +127,23 @@ public class UIPanel : MonoBehaviour
         if (ShowAudio) SoundManager.Instance.PlaySound(ShowAudio);
         gameObject.SetActive(true);
         OnPanelBeginShow?.Invoke();
-        if (ShowFx)
+
+        // 优先级：Panel 自身 > UIManager 全局 > ShowFx/HideFx 自动包装
+        var anim = GetEffectiveAnimation();
+        if (anim != null)
         {
-            ShowFx.PlayFeedbacks();
-            await UniTask.WaitUntil(() => !ShowFx.IsPlaying,
-                cancellationToken: this.GetCancellationTokenOnDestroy());
+            var cg = GetComponent<CanvasGroup>();
+            if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+            cg.alpha = 0f;
+            cg.blocksRaycasts = false;
+
+            anim.OnShowStart?.Invoke(this);
+            await anim.PlayShowAsync(cg, this.GetCancellationTokenOnDestroy());
+            anim.OnShowEnd?.Invoke(this);
+
+            cg.blocksRaycasts = true;
         }
+
         OnShow();
     }
 
@@ -123,12 +153,20 @@ public class UIPanel : MonoBehaviour
         Interactable = false;
         if (HideAudio) SoundManager.Instance.PlaySound(HideAudio);
         OnPanelBeginHide?.Invoke();
-        if (HideFx)
+
+        // 优先级：Panel 自身 > UIManager 全局 > ShowFx/HideFx 自动包装
+        var anim = GetEffectiveAnimation();
+        if (anim != null)
         {
-            HideFx.PlayFeedbacks();
-            await UniTask.WaitUntil(() => !HideFx.IsPlaying,
-                cancellationToken: this.GetCancellationTokenOnDestroy());
+            var cg = GetComponent<CanvasGroup>();
+            if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false;
+
+            anim.OnHideStart?.Invoke(this);
+            await anim.PlayHideAsync(cg, this.GetCancellationTokenOnDestroy());
+            anim.OnHideEnd?.Invoke(this);
         }
+
         OnHide();
     }
 
