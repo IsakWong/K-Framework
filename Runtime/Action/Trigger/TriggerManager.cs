@@ -5,7 +5,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 全局触发器注册表 + 协程驱动者。

@@ -5,7 +5,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 顺序容器：依次执行子节点。Builder 的 Then/Else/Repeat/Parallel 子分支底层都是它。

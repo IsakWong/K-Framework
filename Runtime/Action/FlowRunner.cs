@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 把 IFlowNode 跑起来的入口。

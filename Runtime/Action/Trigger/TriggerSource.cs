@@ -4,7 +4,7 @@
 
 using System;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 触发源抽象：负责绑定外部事件并在事件到来时回调 handler。

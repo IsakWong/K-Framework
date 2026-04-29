@@ -5,7 +5,7 @@
 using System;
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 等待 EventBus 上的特定事件类型。可选过滤器（filter）。

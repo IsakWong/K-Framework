@@ -5,7 +5,7 @@
 using System;
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 等待 KSignal（无参）触发后继续。

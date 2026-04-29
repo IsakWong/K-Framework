@@ -4,7 +4,7 @@
 
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// Flow 与 Trigger 共用的可执行单元抽象。

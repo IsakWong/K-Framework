@@ -5,7 +5,7 @@
 using System.Collections;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 时间等待：使用 Time.deltaTime 累计秒数。受 Time.timeScale 影响。

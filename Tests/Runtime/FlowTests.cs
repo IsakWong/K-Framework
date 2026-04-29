@@ -5,12 +5,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using KFramework.Action;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace KFramework.Tests
+namespace KFramework
 {
     /// <summary>Flow 系统的 PlayMode 测试集。</summary>
     public class FlowTests

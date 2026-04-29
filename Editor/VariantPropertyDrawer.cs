@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
-namespace KFramework.Editor
+namespace KFramework
 {
     [CustomPropertyDrawer(typeof(Variant))]
     public class SerializedVariantDrawer : PropertyDrawer

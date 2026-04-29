@@ -4,7 +4,7 @@
 
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// If/Then/Else 分支节点。

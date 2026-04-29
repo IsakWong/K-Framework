@@ -4,7 +4,7 @@
 
 using System;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 条件抽象：FlowIf / FlowLoop.While / KTrigger.When 共用。

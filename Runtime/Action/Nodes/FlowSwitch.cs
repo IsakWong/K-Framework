@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// Switch 分支：按 Selector 返回的 key 选择对应分支执行。

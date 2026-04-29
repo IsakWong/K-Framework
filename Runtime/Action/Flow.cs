@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// Flow 静态入口。所有链式构建从这里开始。

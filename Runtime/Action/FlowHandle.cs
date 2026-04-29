@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 运行中 Flow 的句柄。FlowRunner.Run() 返回。

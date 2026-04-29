@@ -5,7 +5,7 @@
 using System;
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     public enum WaitConditionMode
     {

@@ -4,7 +4,7 @@
 
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 子流程节点：把另一个 IFlowNode 当作单个节点嵌入。

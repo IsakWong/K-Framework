@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace KFramework.Action
+namespace KFramework
 {
     public enum TriggerLifecycle
     {
@@ -27,16 +27,16 @@ namespace KFramework.Action
     ///       .BuildAndRegister();
     ///
     /// 注意：
-    ///   - 同一个 trigger 在执行 Action（Flow）期间，新的事件触发会被忽略（避免并发执行）
-    ///   - Once 模式在 Action 完成后才 Unregister——确保 Action 跑完
-    ///   - Action 是任意 IFlowNode，可以是单个 Do 也可以是完整的 Flow
+    ///   - 同一个 trigger 在执行 KAction（Flow）期间，新的事件触发会被忽略（避免并发执行）
+    ///   - Once 模式在 KAction 完成后才 Unregister——确保 KAction 跑完
+    ///   - KAction 是任意 IFlowNode，可以是单个 Do 也可以是完整的 Flow
     /// </summary>
     public sealed class KTrigger
     {
         public string Name;
         public TriggerLifecycle Lifecycle;
         public IFlowCondition Condition;
-        public IFlowNode Action;
+        public IFlowNode KAction;
 
         public bool IsRegistered { get; private set; }
         public int FireCount { get; private set; }
@@ -101,14 +101,14 @@ namespace KFramework.Action
 
             FireCount++;
 
-            if (Action == null)
+            if (KAction == null)
             {
                 // 没有动作直接视为完成
                 if (Lifecycle == TriggerLifecycle.Once) Unregister();
                 return;
             }
 
-            _currentHandle = Action.Run(_runner, ctx);
+            _currentHandle = KAction.Run(_runner, ctx);
             _currentHandle.OnFinished += OnActionFinished;
         }
 
@@ -190,19 +190,19 @@ namespace KFramework.Action
 
         public KTriggerBuilder Do(IFlowNode node)
         {
-            _trigger.Action = node;
+            _trigger.KAction = node;
             return this;
         }
 
         public KTriggerBuilder Do(Action action)
         {
-            _trigger.Action = new FlowAction { SyncAction = _ => action?.Invoke() };
+            _trigger.KAction = new FlowAction { SyncAction = _ => action?.Invoke() };
             return this;
         }
 
         public KTriggerBuilder Do(Action<FlowContext> action)
         {
-            _trigger.Action = new FlowAction { SyncAction = action };
+            _trigger.KAction = new FlowAction { SyncAction = action };
             return this;
         }
 

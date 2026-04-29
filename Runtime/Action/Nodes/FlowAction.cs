@@ -5,7 +5,7 @@
 using System;
 using System.Collections;
 
-namespace KFramework.Action
+namespace KFramework
 {
     /// <summary>
     /// 单次动作节点。两种模式：

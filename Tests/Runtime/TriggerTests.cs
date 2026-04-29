@@ -3,12 +3,11 @@
 // Date: 2026/04/29
 
 using System.Collections;
-using KFramework.Action;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace KFramework.Tests
+namespace KFramework
 {
     /// <summary>KTrigger（事件-条件-动作）的 PlayMode 测试集。</summary>
     public class TriggerTests
