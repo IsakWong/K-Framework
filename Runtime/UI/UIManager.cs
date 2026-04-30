@@ -26,7 +26,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     private Canvas _overlayCanvas;
 
     /// <summary>
-    /// 全局 Panel 显隐动画。null 则回退到 UIPanel 自身的 ShowFx/HideFx (MMF_Player)。
+    /// 全局 Panel 显隐动画。null 则回退到 UIPanel 自身的 OpenFx/CloseFx (MMF_Player)。
     /// 可设置为 UIAnimationFade (DOTween 淡入淡出) 或自定义 UIAnimation 子类。
     /// </summary>
     public UIAnimation PanelAnimation { get; set; }
@@ -45,9 +45,13 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         ServiceLocator.Register<IUIService>(this);
     }
 
-    public void AddUI<T>(T t) where T : UIPanel
+    /// <summary>
+    /// 由 UIPanel.Awake 自动调用，把 Panel 注册到 _uiPanels 列表。
+    /// 业务不应直接调用。
+    /// </summary>
+    internal void AddUI<T>(T t) where T : UIPanel
     {
-        if (!_uiPanels.Contains(t))
+        if (t != null && !_uiPanels.Contains(t))
             _uiPanels.Add(t);
     }
 
@@ -65,7 +69,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         var panels = _overlayCanvas.transform.GetComponentsInChildren<UIPanel>();
         foreach (var p in panels)
         {
-            PushUIAsync(p).Forget();
+            PushAsync(p).Forget();
         }
     }
 
@@ -80,7 +84,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
 
     // ─────────── 资源加载 ───────────
 
-    public async UniTask<UIPanel> RequireUIAsync(Type type)
+    public async UniTask<UIPanel> RequireAsync(Type type, string path = null)
     {
         // 已存在则直接返回
         foreach (var panel in _uiPanels)
@@ -89,11 +93,11 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
                 return panel;
         }
 
-        var prefab = await AssetManager.Instance.LoadAssetAsync<GameObject>(
-            $"{UIPrefix}{type.Name}.prefab");
+        var assetPath = !string.IsNullOrEmpty(path) ? path : $"{UIPrefix}{type.Name}.prefab";
+        var prefab = await AssetManager.Instance.LoadAssetAsync<GameObject>(assetPath);
         if (prefab == null)
         {
-            Debug.LogError($"[UIManager] 未找到 UI 预制体：{UIPrefix}{type.Name}.prefab");
+            Debug.LogError($"[UIManager] 未找到 UI 预制体：{assetPath}");
             return null;
         }
 
@@ -108,98 +112,163 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         return ui;
     }
 
-    public async UniTask<T> RequireUIAsync<T>() where T : UIPanel
+    public async UniTask<T> RequireAsync<T>(string path = null) where T : UIPanel
     {
         var ui = GetUI<T>();
         if (ui != null) return ui;
-        return (T)await RequireUIAsync(typeof(T));
+        return (T)await RequireAsync(typeof(T), path);
     }
 
     // ─────────── Push ───────────
 
-    public async UniTask<T> PushUIAsync<T>(UIPanel parent = null) where T : UIPanel
+    public async UniTask<T> PushAsync<T>(UIPanel parent = null) where T : UIPanel
     {
-        var panel = await RequireUIAsync<T>();
+        var panel = await RequireAsync<T>();
         if (panel == null) return null;
-        await PushUIAsync(panel, parent);
+        await PushAsync(panel, parent);
         return panel;
     }
 
-    public async UniTask<UIPanel> PushUIAsync(UIPanel panel, UIPanel parent = null)
+    public async UniTask<UIPanel> PushAsync(UIPanel panel, UIPanel parent = null)
     {
         if (panel == null) return null;
+
+        // 已在容器内 → 切到前台，不重复 Open
+        if (IsInContainers(panel))
+        {
+            await BringToFrontAsync(panel);
+            return panel;
+        }
+
         await WithLock(PushInternalAsync(panel, parent));
         return panel;
     }
 
     private async UniTask PushInternalAsync(UIPanel panel, UIPanel parent)
     {
-        // 已在容器里：先从旧位置移除（不触发 Hide）
-        RemoveFromContainers(panel);
-
         if (panel.Kind == UIPanelKind.Fullscreen)
         {
-            // 栈顶若有其它 Fullscreen → 先隐藏
+            // 栈顶若有其它 Fullscreen → 按 KeepAliveOnSuspend 走 Suspend 或 Close
             var oldTop = _fullscreenStack.First?.Value;
             if (oldTop != null && oldTop != panel && oldTop.Visible)
             {
-                await oldTop.HidePanelAsync();
+                if (oldTop.KeepAliveOnSuspend)
+                    await oldTop.SuspendAsyncInternal();
+                else
+                    await oldTop.CloseAsyncInternal();
             }
 
             _fullscreenStack.AddFirst(panel);
             panel.transform.SetAsLastSibling();
-            if (!panel.Visible) await panel.ShowPanelAsync();
+            if (!panel.Visible) await panel.OpenAsyncInternal();
         }
         else // Overlay
         {
             _overlays.Add(panel);
             panel.transform.SetAsLastSibling();
-            if (!panel.Visible) await panel.ShowPanelAsync();
+            if (!panel.Visible) await panel.OpenAsyncInternal();
         }
 
         RegisterParent(panel, parent ?? panel.ParentPanel);
     }
 
-    // ─────────── Pop ───────────
+    // ─────────── BringToFront ───────────
 
-    public async UniTask PopUIAsync(UIPanel panel = null)
+    public async UniTask BringToFrontAsync(UIPanel panel)
+    {
+        if (panel == null || !IsInContainers(panel)) return;
+        await WithLock(BringToFrontInternalAsync(panel));
+    }
+
+    public async UniTask BringToFrontAsync<T>() where T : UIPanel
+    {
+        var panel = FindInContainers<T>();
+        if (panel == null) return;
+        await BringToFrontAsync(panel);
+    }
+
+    private async UniTask BringToFrontInternalAsync(UIPanel panel)
+    {
+        if (panel.Kind == UIPanelKind.Fullscreen)
+        {
+            var oldTop = _fullscreenStack.First?.Value;
+            if (oldTop == panel)
+            {
+                // 已经在栈顶，仅置 SiblingIndex
+                panel.transform.SetAsLastSibling();
+                if (!panel.Visible) await panel.ResumeAsyncInternal();
+                return;
+            }
+
+            // 旧栈顶按策略 Suspend / Close
+            if (oldTop != null && oldTop.Visible)
+            {
+                if (oldTop.KeepAliveOnSuspend)
+                    await oldTop.SuspendAsyncInternal();
+                else
+                    await oldTop.CloseAsyncInternal();
+            }
+
+            // 自己移到栈顶
+            _fullscreenStack.Remove(panel);
+            _fullscreenStack.AddFirst(panel);
+            panel.transform.SetAsLastSibling();
+
+            // 如果之前是 Suspend 状态 → Resume；否则冷启动 Open
+            if (panel.Visible) return;
+            if (oldTop != null && oldTop != panel && oldTop.KeepAliveOnSuspend)
+                await panel.ResumeAsyncInternal();
+            else
+                await panel.OpenAsyncInternal();
+        }
+        else // Overlay
+        {
+            // Overlay 仅置 SiblingIndex，无 Suspend/Resume 概念
+            panel.transform.SetAsLastSibling();
+            if (!panel.Visible) await panel.OpenAsyncInternal();
+        }
+    }
+
+    // ─────────── Close ───────────
+
+    public async UniTask CloseAsync(UIPanel panel = null)
     {
         panel ??= _fullscreenStack.First?.Value;
         if (panel == null) return;
-        await WithLock(PopInternalAsync(panel));
+        await WithLock(CloseInternalAsync(panel));
     }
 
-    public async UniTask<T> PopUIAsync<T>() where T : UIPanel
+    public async UniTask<T> CloseAsync<T>() where T : UIPanel
     {
         var panel = FindInContainers<T>();
         if (panel == null) return null;
-        await WithLock(PopInternalAsync(panel));
+        await WithLock(CloseInternalAsync(panel));
         return panel;
     }
 
-    public async UniTask PopFullscreenAsync()
+    public async UniTask CloseTopFullscreenAsync()
     {
         var top = _fullscreenStack.First?.Value;
         if (top == null) return;
-        await WithLock(PopInternalAsync(top));
+        await WithLock(CloseInternalAsync(top));
     }
 
-    public async UniTask PopAllAsync()
+    public async UniTask CloseAllAsync()
     {
         // 快照一份避免遍历时修改
         var snapshot = new List<UIPanel>(_fullscreenStack);
         snapshot.AddRange(_overlays);
 
-        await WithLock(PopAllInternalAsync(snapshot));
+        await WithLock(CloseAllInternalAsync(snapshot));
     }
 
-    private async UniTask PopAllInternalAsync(List<UIPanel> snapshot)
+    private async UniTask CloseAllInternalAsync(List<UIPanel> snapshot)
     {
         foreach (var p in snapshot)
         {
             if (p == null) continue;
             if (!IsInContainers(p)) continue;
-            if (p.Visible) await p.HidePanelAsync();
+            if (p.Visible) await p.CloseAsyncInternal();
             RemoveFromContainers(p);
             UnregisterParent(p);
         }
@@ -208,13 +277,11 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         _childrenOf.Clear();
     }
 
-    public UniTask CloseUIAsync(UIPanel panel) => PopUIAsync(panel);
-
-    private async UniTask PopInternalAsync(UIPanel panel)
+    private async UniTask CloseInternalAsync(UIPanel panel)
     {
         if (!IsInContainers(panel)) return;
 
-        // 1. 级联 Pop 子面板（倒序，保证最后压入的最先关闭）
+        // 1. 级联 Close 子面板（倒序，保证最后压入的最先关闭）
         if (_childrenOf.TryGetValue(panel, out var children) && children.Count > 0)
         {
             var snapshot = new List<UIPanel>(children);
@@ -222,48 +289,54 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
             {
                 var child = snapshot[i];
                 if (child != null && IsInContainers(child))
-                    await PopInternalAsync(child);
+                    await CloseInternalAsync(child);
             }
         }
 
-        // 2. 隐藏自身
+        // 2. 关闭自身（Suspend 状态的 Panel.Visible 是 false，跳过动画但仍要走 Close 收尾）
         bool wasFullscreen = panel.Kind == UIPanelKind.Fullscreen;
-        if (panel.Visible) await panel.HidePanelAsync();
+        if (panel.Visible)
+            await panel.CloseAsyncInternal();
+        else
+            panel.gameObject.SetActive(false);
 
         // 3. 从容器移除
         RemoveFromContainers(panel);
         UnregisterParent(panel);
 
-        // 4. 若是 Fullscreen 且栈里还有下一张 → 显示新栈顶
+        // 4. 若是 Fullscreen 且栈里还有下一张 → 显示新栈顶（Suspend 中的走 Resume，未启动的走 Open）
         if (wasFullscreen)
         {
             var next = _fullscreenStack.First?.Value;
             if (next != null && !next.Visible)
             {
-                await next.ShowPanelAsync();
+                if (next.gameObject.activeSelf)
+                    await next.ResumeAsyncInternal();
+                else
+                    await next.OpenAsyncInternal();
             }
         }
     }
 
     // ─────────── 销毁 ───────────
 
-    public async UniTask DestroyUIAsync<T>() where T : UIPanel
+    public async UniTask DestroyAsync<T>() where T : UIPanel
     {
         var ui = GetUI<T>();
-        if (ui != null) await DestroyUIAsync(ui);
+        if (ui != null) await DestroyAsync(ui);
     }
 
-    public async UniTask DestroyUIAsync(UIPanel panel)
+    public async UniTask DestroyAsync(UIPanel panel)
     {
         if (panel == null) return;
-        if (IsInContainers(panel)) await PopUIAsync(panel);
+        if (IsInContainers(panel)) await CloseAsync(panel);
         _uiPanels.Remove(panel);
         if (panel) Destroy(panel.gameObject);
     }
 
-    public async UniTask DestroyAllUIAsync()
+    public async UniTask DestroyAllAsync()
     {
-        await PopAllAsync();
+        await CloseAllAsync();
         var snapshot = new List<UIPanel>(_uiPanels);
         foreach (var p in snapshot)
         {
@@ -290,22 +363,30 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         return null;
     }
 
-    public bool IsUIVisible<T>() where T : UIPanel
+    public bool IsOpen<T>() where T : UIPanel
     {
-        foreach (var p in _fullscreenStack) if (p is T) return true;
-        foreach (var p in _overlays) if (p is T) return true;
+        foreach (var p in _fullscreenStack) if (p is T && p.Visible) return true;
+        foreach (var p in _overlays) if (p is T && p.Visible) return true;
         return false;
     }
 
-    public bool IsUIVisible(UIPanel panel) => IsInContainers(panel);
+    public bool IsOpen(UIPanel panel) => panel != null && panel.Visible && IsInContainers(panel);
+
+    public bool IsLoaded<T>() where T : UIPanel
+    {
+        foreach (var p in _uiPanels) if (p is T) return true;
+        return false;
+    }
+
+    public bool IsLoaded(UIPanel panel) => panel != null && _uiPanels.Contains(panel);
 
     public int GetVisiblePanelCount() => _fullscreenStack.Count + _overlays.Count;
 
     public bool HasAnyPanelVisible() => GetVisiblePanelCount() > 0;
 
-    public UIPanel GetTopmostFullscreen() => _fullscreenStack.First?.Value;
+    public UIPanel GetTopFullscreen() => _fullscreenStack.First?.Value;
 
-    public UIPanel GetTopmostPanel()
+    public UIPanel GetTopPanel()
     {
         // Overlay 渲染层级 > Fullscreen 栈顶
         if (_overlays.Count > 0) return _overlays[_overlays.Count - 1];
@@ -372,7 +453,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
             list.Remove(panel);
             if (list.Count == 0) _childrenOf.Remove(parent);
         }
-        // 同时清掉以 panel 为 key 的条目（可能已在 Pop 流程里被消耗为空）
+        // 同时清掉以 panel 为 key 的条目（可能已在 Close 流程里被消耗为空）
         _childrenOf.Remove(panel);
     }
 

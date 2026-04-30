@@ -6,36 +6,36 @@ using UnityEngine;
 
 /// <summary>
 /// 基于 MMF_Player 的 UI 动画。
-/// 对应 UIPanel 上的 ShowFx / HideFx，也可手动创建并赋给 PanelAnimation。
+/// 对应 UIPanel 上的 OpenFx / CloseFx，也可手动创建并赋给 PanelAnimation。
 /// 与 UIAnimationFade 同级，可按需替换。
 /// </summary>
 public class UIAnimationMMF : UIAnimation
 {
-    [LabelText("显示反馈")]
-    public MMF_Player ShowPlayer { get; set; }
+    [LabelText("打开反馈")]
+    public MMF_Player OpenPlayer { get; set; }
 
-    [LabelText("隐藏反馈")]
-    public MMF_Player HidePlayer { get; set; }
+    [LabelText("关闭反馈")]
+    public MMF_Player ClosePlayer { get; set; }
 
     public UIAnimationMMF() { }
 
-    public UIAnimationMMF(MMF_Player showPlayer, MMF_Player hidePlayer)
+    public UIAnimationMMF(MMF_Player openPlayer, MMF_Player closePlayer)
     {
-        ShowPlayer = showPlayer;
-        HidePlayer = hidePlayer;
+        OpenPlayer = openPlayer;
+        ClosePlayer = closePlayer;
     }
 
-    public override async UniTask PlayShowAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
+    public override async UniTask PlayOpenAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
     {
-        if (ShowPlayer == null) return;
-        ShowPlayer.PlayFeedbacks();
-        await UniTask.WaitUntil(() => !ShowPlayer.IsPlaying, cancellationToken: ct);
+        if (OpenPlayer == null) return;
+        OpenPlayer.PlayFeedbacks();
+        await UniTask.WaitUntil(() => !OpenPlayer.IsPlaying, cancellationToken: ct);
     }
 
-    public override async UniTask PlayHideAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
+    public override async UniTask PlayCloseAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
     {
-        if (HidePlayer == null) return;
-        HidePlayer.PlayFeedbacks();
-        await UniTask.WaitUntil(() => !HidePlayer.IsPlaying, cancellationToken: ct);
+        if (ClosePlayer == null) return;
+        ClosePlayer.PlayFeedbacks();
+        await UniTask.WaitUntil(() => !ClosePlayer.IsPlaying, cancellationToken: ct);
     }
 }

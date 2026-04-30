@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,22 +12,15 @@ public class UILoadingPanel : UIPanel
     public Animator Animator;
     public Text LoadingText;
 
-    public void SwitchMask()
-    {
-        Sequence seq = DOTween.Sequence();
-        seq.AppendInterval(0.5f);
-        seq.Play();
-    }
-
     public void SetLoadingTip(string text)
     {
         if (LoadingText)
             LoadingText.text = text;
     }
 
-    protected override void OnHide()
+    protected override void OnClose()
     {
-        base.OnHide();
+        base.OnClose();
         _loadingCloseCallback?.Invoke();
     }
 
@@ -45,7 +37,7 @@ public class UILoadingPanel : UIPanel
             yield return new WaitForSeconds(remainTime);
         if (autoHideUI)
         {
-            UIManager.Instance.PopUIAsync(this).Forget();
+            UIManager.Instance.CloseAsync(this).Forget();
         }
         yield return null;
     }

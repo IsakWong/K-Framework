@@ -14,7 +14,7 @@ public class UIAnimationFade : UIAnimation
     [LabelText("缓动曲线")]
     public Ease Ease = Ease.OutCubic;
 
-    public override async UniTask PlayShowAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
+    public override async UniTask PlayOpenAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
     {
         canvasGroup.alpha = 0f;
         var tcs = new UniTaskCompletionSource();
@@ -24,7 +24,7 @@ public class UIAnimationFade : UIAnimation
         await tcs.Task;
     }
 
-    public override async UniTask PlayHideAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
+    public override async UniTask PlayCloseAsync(CanvasGroup canvasGroup, CancellationToken ct = default)
     {
         canvasGroup.alpha = 1f;
         var tcs = new UniTaskCompletionSource();

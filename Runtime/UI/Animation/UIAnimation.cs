@@ -9,11 +9,11 @@ using UnityEngine;
 /// </summary>
 public interface IUIAnimation
 {
-    /// <summary>播放显示动画，完成后返回</summary>
-    UniTask PlayShowAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
+    /// <summary>播放打开动画，完成后返回</summary>
+    UniTask PlayOpenAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
 
-    /// <summary>播放隐藏动画，完成后返回</summary>
-    UniTask PlayHideAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
+    /// <summary>播放关闭动画，完成后返回</summary>
+    UniTask PlayCloseAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -24,18 +24,18 @@ public abstract class UIAnimation : IUIAnimation
     [LabelText("动画时长")]
     public float Duration = 0.3f;
 
-    [LabelText("显示动画开始")]
-    public KSignal<UIPanel> OnShowStart = new();
+    [LabelText("打开动画开始")]
+    public KSignal<UIPanel> OnOpenStart = new();
 
-    [LabelText("显示动画结束")]
-    public KSignal<UIPanel> OnShowEnd = new();
+    [LabelText("打开动画结束")]
+    public KSignal<UIPanel> OnOpenEnd = new();
 
-    [LabelText("隐藏动画开始")]
-    public KSignal<UIPanel> OnHideStart = new();
+    [LabelText("关闭动画开始")]
+    public KSignal<UIPanel> OnCloseStart = new();
 
-    [LabelText("隐藏动画结束")]
-    public KSignal<UIPanel> OnHideEnd = new();
+    [LabelText("关闭动画结束")]
+    public KSignal<UIPanel> OnCloseEnd = new();
 
-    public abstract UniTask PlayShowAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
-    public abstract UniTask PlayHideAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
+    public abstract UniTask PlayOpenAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
+    public abstract UniTask PlayCloseAsync(CanvasGroup canvasGroup, CancellationToken ct = default);
 }
