@@ -2,12 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// 自动绑定工具：扫描 MonoBehaviour 上标记了 [AutoBind] 的字段，
 /// 从子物体层级中查找并自动赋值对应组件。
 /// <para>
-/// 用法：在 Awake() 或 Initialize() 中调用 AutoBinder.Bind(this);
+/// 推荐用法（编辑器期绑定，运行时零反射）：
+/// <code>
+/// [AutoBind, SerializeField] private Transform _muzzle;
+/// #if UNITY_EDITOR
+/// private void OnValidate() => AutoBinder.BindInEditor(this);
+/// #endif
+/// </code>
+/// 字段必须可序列化（[SerializeField] 或 public），否则 OnValidate 写入的引用无法持久化。
+/// </para>
+/// <para>
+/// 兜底用法：若运行时仍出现引用为空（例如字段未序列化），可在 Awake() 中调用
+/// <see cref="BindRuntimeFallback"/> 临时补齐，但代价是反射开销。
 /// </para>
 /// </summary>
 public static class AutoBinder
@@ -18,17 +32,35 @@ public static class AutoBinder
     private const BindingFlags kBindingFlags =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+#if UNITY_EDITOR
     /// <summary>
-    /// 扫描目标对象的所有 [AutoBind] 字段并自动绑定。
+    /// 编辑器期绑定：在 OnValidate 中调用，将解析结果写回序列化字段，运行时无反射开销。
+    /// 已赋值的字段不会被覆盖。返回 true 表示有字段被修改。
     /// </summary>
-    public static void Bind(MonoBehaviour target)
+    public static bool BindInEditor(MonoBehaviour target)
     {
-        if (target == null) return;
+        return BindInternal(target, persist: true);
+    }
+#endif
+
+    /// <summary>
+    /// 运行时兜底：在 Awake/Initialize 中调用，扫描并绑定未填的 [AutoBind] 字段。
+    /// 仅在序列化字段意外缺失时使用，常规情况应依赖 BindInEditor 在编辑器中固化结果。
+    /// </summary>
+    public static void BindRuntimeFallback(MonoBehaviour target)
+    {
+        BindInternal(target, persist: false);
+    }
+
+    private static bool BindInternal(MonoBehaviour target, bool persist)
+    {
+        if (target == null) return false;
 
         var fields = GetCachedFields(target.GetType());
-        if (fields.Length == 0) return;
+        if (fields.Length == 0) return false;
 
         var transform = target.transform;
+        bool changed = false;
 
         for (int i = 0; i < fields.Length; i++)
         {
@@ -36,7 +68,7 @@ public static class AutoBinder
             var attr = field.GetCustomAttribute<AutoBindAttribute>();
             if (attr == null) continue;
 
-            // 已有值则跳过（支持 Inspector 手动赋值优先）
+            // 已有值则跳过（Inspector / 之前 OnValidate 写入的引用优先，不覆盖）
             var existing = field.GetValue(target);
             if (existing != null && (existing is not UnityEngine.Object uo || uo != null))
                 continue;
@@ -61,6 +93,7 @@ public static class AutoBinder
             if (result != null)
             {
                 field.SetValue(target, result);
+                changed = true;
             }
             else if (!attr.Optional)
             {
@@ -71,6 +104,17 @@ public static class AutoBinder
                     target);
             }
         }
+
+#if UNITY_EDITOR
+        if (persist && changed && !Application.isPlaying)
+        {
+            EditorUtility.SetDirty(target);
+            if (PrefabUtility.IsPartOfPrefabInstance(target))
+                PrefabUtility.RecordPrefabInstancePropertyModifications(target);
+        }
+#endif
+
+        return changed;
     }
 
     /// <summary>
