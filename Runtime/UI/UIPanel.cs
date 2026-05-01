@@ -38,10 +38,6 @@ public class UIPanel : MonoBehaviour
     [Tooltip("仅 Fullscreen 生效。开启后被压栈时走 Suspend（仅 SetActive(false)，保留订阅与 BGM）；关闭走 Close（断订阅、Pop BGM）。")]
     public bool KeepAliveOnSuspend = false;
 
-    [LabelText("返回键关闭")]
-    [Tooltip("是否响应返回键关闭")]
-    public bool PopWhenBack = false;
-
     [LabelText("启动时打开")]
     public bool OpenOnStart = false;
 
@@ -63,14 +59,9 @@ public class UIPanel : MonoBehaviour
     [LabelText("背景音乐")]
     public AudioClip BGM;
 
-    [LabelText("打开特效")]
-    public MMF_Player OpenFx;
-
-    [LabelText("关闭特效")]
-    public MMF_Player CloseFx;
-
     [LabelText("面板动画")]
     [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
+    [SerializeReference]
     public UIAnimation PanelAnimation;
 
     // ════════════════════════════════════════════════
@@ -290,11 +281,6 @@ public class UIPanel : MonoBehaviour
     {
         if (PanelAnimation != null) return PanelAnimation;
         if (UIManager.Instance?.PanelAnimation != null) return UIManager.Instance.PanelAnimation;
-        if (OpenFx != null || CloseFx != null)
-        {
-            _mmfAnimation ??= new UIAnimationMMF(OpenFx, CloseFx);
-            return _mmfAnimation;
-        }
         return null;
     }
 

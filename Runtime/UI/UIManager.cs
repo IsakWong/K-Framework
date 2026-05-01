@@ -29,7 +29,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     /// 全局 Panel 显隐动画。null 则回退到 UIPanel 自身的 OpenFx/CloseFx (MMF_Player)。
     /// 可设置为 UIAnimationFade (DOTween 淡入淡出) 或自定义 UIAnimation 子类。
     /// </summary>
-    public UIAnimation PanelAnimation { get; set; }
+    public UIAnimation PanelAnimation = new UIAnimationFade();
 
     public IReadOnlyCollection<UIPanel> GetFullscreenStack() => _fullscreenStack;
     public IReadOnlyList<UIPanel> GetOverlays() => _overlays;
