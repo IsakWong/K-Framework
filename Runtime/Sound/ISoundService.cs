@@ -25,7 +25,7 @@ public interface ISoundService
 
     // ─── 音乐 ───
 
-    void PlayMusic(AudioClip clip);
+    void PlayMusic(AudioClip clip, SoundCategory category = null);
     void PopTrack();
 
     // ─── Mixer 控制 ───

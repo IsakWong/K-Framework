@@ -199,6 +199,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
     private AudioSource previousMusic;
     private readonly LinkedList<AudioSource> musicStack = new();
     [SerializeField] private AudioMixerGroup musicMixerGroup;
+    public AudioMixerGroup MusicMixerGroup { get => musicMixerGroup; set => musicMixerGroup = value; }
 
     public void Clear()
     {
@@ -233,7 +234,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         }
     }
 
-    public void PlayMusic(AudioClip clip)
+    public void PlayMusic(AudioClip clip, SoundCategory category = null)
     {
         if (clip == null) return;
         if (currentMusic && currentMusic.clip == clip) return;
@@ -242,7 +243,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
 
         currentMusic = gameObject.AddComponent<AudioSource>();
         currentMusic.clip = clip;
-        currentMusic.outputAudioMixerGroup = musicMixerGroup;
+        currentMusic.outputAudioMixerGroup = category?.mixerGroup ?? musicMixerGroup;
         currentMusic.loop = true;
         currentMusic.volume = 0;
         currentMusic.bypassListenerEffects = true;

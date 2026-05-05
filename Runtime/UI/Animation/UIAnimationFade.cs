@@ -68,5 +68,9 @@ public class UIAnimationFade : UIAnimation
         moveTween.OnKill(TryComplete);
 
         await tcs.Task;
+
+        // 恢复原始锚点位置，防止多次开关后 Y 值累积偏移
+        // 此时 alpha=0，用户不可见
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, originY);
     }
 }
