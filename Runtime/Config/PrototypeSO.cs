@@ -25,7 +25,6 @@ public abstract class PrototypeSO<T> : ScriptableObject where T : class, IProtot
     [SerializeReference]
     [LabelText("原型")]
     [Tooltip("选择具体子类型后在下方配置参数。运行时通过 Clone() 创建独立实例。")]
-    [InlineProperty]
     public T Template;
 
     /// <summary>
