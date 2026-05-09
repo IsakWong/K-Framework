@@ -4,7 +4,7 @@
   "displayName": "KFramework",
   "description": "A modular Unity game framework for 2D/3D games. Provides Service Locator, Singleton, EventBus, FSM, Object Pool, Sound System, UI Management, Behavior Tree, and more.",
   "unity": "2021.3",
-  "documentationUrl": "https://github.com/isakwong/KFramework",
+  "documentationUrl": "https://isakwong.github.io/K-Framework",
   "changelogUrl": "https://github.com/isakwong/KFramework/blob/main/CHANGELOG.md",
   "licensesUrl": "https://github.com/isakwong/KFramework/blob/main/LICENSE",
   "keywords": [

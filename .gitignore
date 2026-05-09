@@ -70,3 +70,12 @@ packages/
 
 # Copilot session state
 .copilot/
+
+# VitePress / Node
+docs/node_modules/
+docs/node_modules.meta
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Claude Code
+.claude/
