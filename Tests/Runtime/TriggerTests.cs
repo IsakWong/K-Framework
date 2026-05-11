@@ -1,4 +1,4 @@
-// Copyright (c) 2025 NetEase Inc. All rights reserved.
+
 // Author: isakwong
 // Date: 2026/04/29
 
