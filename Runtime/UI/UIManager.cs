@@ -121,10 +121,18 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
 
     // ─────────── Push ───────────
 
-    public async UniTask<T> PushAsync<T>(UIPanel parent = null) where T : UIPanel
+    public async UniTask<T> PushAsync<T>(UIPanel parent = null, Action<T> configure = null) where T : UIPanel
     {
         var panel = await RequireAsync<T>();
         if (panel == null) return null;
+
+        // Push 阶段初始化：在动画播放前绑定数据，避免面板空着播完动画
+        if (configure != null)
+        {
+            panel.gameObject.SetActive(false);
+            configure(panel);
+        }
+
         await PushAsync(panel, parent);
         return panel;
     }
@@ -140,7 +148,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
             return panel;
         }
 
-        await WithLock(PushInternalAsync(panel, parent));
+        await WithLock(() => PushInternalAsync(panel, parent));
         return panel;
     }
 
@@ -177,7 +185,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     public async UniTask BringToFrontAsync(UIPanel panel)
     {
         if (panel == null || !IsInContainers(panel)) return;
-        await WithLock(BringToFrontInternalAsync(panel));
+        await WithLock(() => BringToFrontInternalAsync(panel));
     }
 
     public async UniTask BringToFrontAsync<T>() where T : UIPanel
@@ -235,14 +243,14 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     {
         panel ??= _fullscreenStack.First?.Value;
         if (panel == null) return;
-        await WithLock(CloseInternalAsync(panel));
+        await WithLock(() => CloseInternalAsync(panel));
     }
 
     public async UniTask<T> CloseAsync<T>() where T : UIPanel
     {
         var panel = FindInContainers<T>();
         if (panel == null) return null;
-        await WithLock(CloseInternalAsync(panel));
+        await WithLock(() => CloseInternalAsync(panel));
         return panel;
     }
 
@@ -250,7 +258,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     {
         var top = _fullscreenStack.First?.Value;
         if (top == null) return;
-        await WithLock(CloseInternalAsync(top));
+        await WithLock(() => CloseInternalAsync(top));
     }
 
     public async UniTask CloseAllAsync()
@@ -259,7 +267,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         var snapshot = new List<UIPanel>(_fullscreenStack);
         snapshot.AddRange(_overlays);
 
-        await WithLock(CloseAllInternalAsync(snapshot));
+        await WithLock(() => CloseAllInternalAsync(snapshot));
     }
 
     private async UniTask CloseAllInternalAsync(List<UIPanel> snapshot)
@@ -457,8 +465,10 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         _childrenOf.Remove(panel);
     }
 
-    // 串行锁：把每次操作排队到 _pendingOp 之后
-    private async UniTask WithLock(UniTask op)
+    // 串行锁：把每次操作排队到 _pendingOp 之后。
+    // 使用 Func<UniTask> 工厂而非直接传 UniTask，避免 async 方法的同步部分
+    // 在 await previous 之前就执行，导致动画重叠和状态撕裂。
+    private async UniTask WithLock(Func<UniTask> opFactory)
     {
         var previous = _pendingOp;
         var tcs = new UniTaskCompletionSource();
@@ -466,7 +476,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         try
         {
             await previous;
-            await op;
+            await opFactory();
         }
         finally
         {
