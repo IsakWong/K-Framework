@@ -22,7 +22,7 @@ public interface IUIService
     // ─── 入容器 + Open ───
 
     /// <summary>加载 + 入容器 + Open。若已在容器内，转交给 BringToFrontAsync。</summary>
-    UniTask<T> PushAsync<T>(UIPanel parent = null) where T : UIPanel;
+    UniTask<T> PushAsync<T>(UIPanel parent = null, Action<T> configure = null) where T : UIPanel;
     UniTask<UIPanel> PushAsync(UIPanel panel, UIPanel parent = null);
 
     // ─── 切到前台 ───

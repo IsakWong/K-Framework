@@ -28,13 +28,13 @@ namespace KFramework
         {
             if (_signal == null) return;
             _handler = handler;
-            _signal.Add(_handler);
+            _signal.Connect(_handler);
         }
 
         public void Unbind()
         {
             if (_signal == null || _handler == null) return;
-            _signal.Remove(_handler);
+            _signal.Disconnect(_handler);
             _handler = null;
         }
     }
@@ -60,13 +60,13 @@ namespace KFramework
                 if (_filter != null && !_filter(arg)) return;
                 handler?.Invoke();
             };
-            _signal.Add(_handler);
+            _signal.Connect(_handler);
         }
 
         public void Unbind()
         {
             if (_signal == null || _handler == null) return;
-            _signal.Remove(_handler);
+            _signal.Disconnect(_handler);
             _handler = null;
         }
     }

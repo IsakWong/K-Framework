@@ -203,6 +203,20 @@ public class Signal<TDelegate> : ISignal where TDelegate : Delegate
 /// </summary>
 public class KSignal : Signal<Action>
 {
+    public static KSignal operator +(KSignal left, Action callback)
+    {
+        left ??= new KSignal();
+        left._delegates = (Action)Delegate.Combine(left._delegates, callback);
+        return left;
+    }
+
+    public static KSignal operator -(KSignal left, Action callback)
+    {
+        if (left != null)
+            left._delegates = (Action)Delegate.Remove(left._delegates, callback);
+        return left;
+    }
+
     /// <summary>
     /// 调用信号，触发所有已注册的回调（强类型，零装箱）
     /// </summary>

@@ -107,7 +107,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
 
         ui.transform.SetParent(OverlayCanvas.transform, false);
         ui.transform.SetSiblingIndex(ui.transform.parent.childCount);
-        ui.gameObject.SetActive(true);
+        ui.gameObject.SetActive(false);
         AddUI(ui);
         return ui;
     }

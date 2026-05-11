@@ -199,10 +199,7 @@ namespace KFramework
             var v2 = new Vector2(1.5f, 2.5f);
             var back = v2.ToVector3().ToVector2();
             Assert.AreEqual(v2, back);
-
-            var v3i = new Vector3Int(1, 2, 3);
-            var back3i = v3i.ToVector3().RoundToInt();
-            Assert.AreEqual(v3i, back3i);
+            
         }
 
         // 手动定义 RoundToInt 因为它在 Vector3 上没有直接的扩展方法

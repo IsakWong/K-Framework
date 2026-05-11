@@ -59,6 +59,10 @@ public class UIPanel : MonoBehaviour
     [LabelText("背景音乐")]
     public AudioClip BGM;
 
+    [LabelText("背景模糊")]
+    [Tooltip("打开面板时模糊背景画面（需场景中存在 UIBlurBackgroundController）")]
+    public bool EnableBackgroundBlur = false;
+
     [LabelText("面板动画")]
     [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
     [SerializeReference]
@@ -102,6 +106,16 @@ public class UIPanel : MonoBehaviour
     protected Subscriber subscriber = new();
 
     // ════════════════════════════════════════════════
+    // 静态回调
+    // ════════════════════════════════════════════════
+
+    /// <summary>
+    /// 面板请求/释放背景模糊。由 <see cref="UIBlurBackgroundController"/> 订阅。
+    /// 参数: (UIPanel, bool enable)
+    /// </summary>
+    public static System.Action<UIPanel, bool> OnBackgroundBlurRequested;
+
+    // ════════════════════════════════════════════════
     // 公开虚方法（业务可重写但不应直接调用）
     // ════════════════════════════════════════════════
 
@@ -138,26 +152,36 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask OpenAsyncInternal()
     {
+        EnhancedLog.Log($"[UIManager]{name} OpenAsyncInternal");
         Visible = true;
-        Interactable = true;
         if (OpenAudio) SoundManager.Instance.PlaySound(OpenAudio);
-        gameObject.SetActive(true);
-        OnPanelBeginOpen?.Invoke();
 
         var anim = GetEffectiveAnimation();
+        CanvasGroup cg = null;
         if (anim != null)
         {
-            var cg = GetOrAddCanvasGroup();
-            cg.alpha = 0f;
+            cg = GetOrAddCanvasGroup();
             cg.blocksRaycasts = false;
+        }
 
+        gameObject.SetActive(true);
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, true);
+
+        OnPanelBeginOpen?.Invoke();
+
+        if (anim != null)
+        {
             anim.OnOpenStart?.Invoke(this);
+            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
             await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
             anim.OnOpenEnd?.Invoke(this);
 
             cg.blocksRaycasts = true;
         }
 
+        Interactable = true;
         OnOpen();
     }
 
@@ -168,6 +192,10 @@ public class UIPanel : MonoBehaviour
     {
         Visible = false;
         Interactable = false;
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, false);
+
         if (CloseAudio) SoundManager.Instance.PlaySound(CloseAudio);
         OnPanelBeginClose?.Invoke();
 
@@ -193,6 +221,10 @@ public class UIPanel : MonoBehaviour
     {
         Visible = false;
         Interactable = false;
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, false);
+
         OnPanelBeginSuspend?.Invoke();
 
         var anim = GetEffectiveAnimation();
@@ -218,25 +250,35 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask ResumeAsyncInternal()
     {
+        EnhancedLog.Log($"[UIManager] {name} ResumeAsyncInternal");
         Visible = true;
-        Interactable = true;
-        gameObject.SetActive(true);
-        OnPanelBeginResume?.Invoke();
 
         var anim = GetEffectiveAnimation();
+        CanvasGroup cg = null;
         if (anim != null)
         {
-            var cg = GetOrAddCanvasGroup();
-            cg.alpha = 0f;
+            cg = GetOrAddCanvasGroup();
             cg.blocksRaycasts = false;
+        }
 
+        gameObject.SetActive(true);
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, true);
+
+        OnPanelBeginResume?.Invoke();
+
+        if (anim != null)
+        {
             anim.OnOpenStart?.Invoke(this);
+            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
             await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
             anim.OnOpenEnd?.Invoke(this);
 
             cg.blocksRaycasts = true;
         }
 
+        Interactable = true;
         OnResume();
         OnPanelResume?.Invoke();
     }

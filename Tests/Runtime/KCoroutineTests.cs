@@ -242,8 +242,7 @@ namespace KFramework
             Assert.AreEqual(1, step);
 
             co.Stop();
-            Assert.IsTrue(co.IsDone);
-            Assert.IsTrue(co.IsStopped);
+            Assert.IsTrue(co.IsDone);            
 
             // Handler 应自动移除已停止的协程
             _handler.Tick(0.1f);

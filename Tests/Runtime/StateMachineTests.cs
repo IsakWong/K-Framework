@@ -295,8 +295,8 @@ namespace KFramework
             var parentFsm = new StateMachine();
             var childFsm = new StateMachine<string, string, string>(needsExitTime: false);
 
-            childFsm.AddState("SubA", new State<string, string, string>());
-            childFsm.AddState("SubB", new State<string, string, string>());
+            childFsm.AddState("SubA", new State<string>());
+            childFsm.AddState("SubB", new State<string>());
             childFsm.AddTransition(new Transition<string>("SubA", "SubB"));
             childFsm.SetStartState("SubA");
 
@@ -315,13 +315,13 @@ namespace KFramework
             var parent = new StateMachine<string, string, string>();
             var child = new StateMachine<string, string, string>(needsExitTime: false);
 
-            child.AddState("SubA", new State<string, string, string>());
-            child.AddState("SubB", new State<string, string, string>());
+            child.AddState("SubA", new State<string>());
+            child.AddState("SubB", new State<string>());
             child.AddTriggerTransition("swap", new Transition<string>("SubA", "SubB"));
             child.SetStartState("SubA");
 
             parent.AddState("Child", child);
-            parent.AddState("Other", new State<string, string, string>());
+            parent.AddState("Other", new State<string>());
             parent.AddTransition(new Transition<string>("Child", "Other"));
             parent.Init();
 

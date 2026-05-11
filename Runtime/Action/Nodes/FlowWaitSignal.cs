@@ -26,14 +26,14 @@ namespace KFramework
 
             bool fired = false;
             Action handler = () => fired = true;
-            Signal.Add(handler);
+            Signal.Connect(handler);
             try
             {
                 while (!fired && !ctx.IsCancelled) yield return null;
             }
             finally
             {
-                Signal.Remove(handler);
+                Signal.Disconnect(handler);
             }
         }
     }
@@ -64,14 +64,14 @@ namespace KFramework
                 captured = arg;
                 fired = true;
             };
-            Signal.Add(handler);
+            Signal.Connect(handler);
             try
             {
                 while (!fired && !ctx.IsCancelled) yield return null;
             }
             finally
             {
-                Signal.Remove(handler);
+                Signal.Disconnect(handler);
             }
 
             if (fired && OnFired != null) OnFired(ctx, captured);
