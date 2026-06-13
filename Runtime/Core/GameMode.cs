@@ -30,6 +30,10 @@ public class GameMode : MonoBehaviour
     
     [Tooltip("场景背景音乐")]
     public AudioClip SceneMusic;
+
+    [Tooltip("场景背景音乐音量 (0-1)，与设置音量相乘")]
+    [Range(0f, 1f)]
+    public float SceneMusicVolume = 1.0f;
     
     [Tooltip("是否在启动时加载持久化数据")]
     public bool LoadPersistentDataOnStart = true;
@@ -174,7 +178,7 @@ public class GameMode : MonoBehaviour
     {
         if (SceneMusic != null)
         {
-            SoundManager.Instance.PlayMusic(SceneMusic);
+            SoundManager.Instance.PlayMusic(SceneMusic, volumeScale: SceneMusicVolume);
         }
         
         EnhancedLog.Info("GameMode", $"{gameObject.name} {GetType().Name} OnModeStart");

@@ -234,12 +234,33 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         }
     }
 
-    public void PlayMusic(AudioClip clip, SoundCategory category = null)
+    private float _currentMusicVolumeScale = 1.0f;
+
+    public void PlayMusic(AudioClip clip, SoundCategory category = null, float volumeScale = 1.0f)
     {
         if (clip == null) return;
         if (currentMusic && currentMusic.clip == clip) return;
 
-        previousMusic = musicStack.Last?.Value;
+        // 销毁 musicStack 中除 currentMusic 以外的所有旧 AudioSource
+        foreach (var source in musicStack)
+        {
+            if (source && source != currentMusic)
+            {
+                source.Stop();
+                Destroy(source);
+            }
+        }
+        musicStack.Clear();
+
+        // 销毁上一轮 crossfade 尚未清理完的 previousMusic
+        if (previousMusic && previousMusic != currentMusic)
+        {
+            previousMusic.Stop();
+            Destroy(previousMusic);
+        }
+
+        previousMusic = currentMusic;
+        currentMusic = null;
 
         currentMusic = gameObject.AddComponent<AudioSource>();
         currentMusic.clip = clip;
@@ -250,6 +271,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         currentMusic.Play();
         musicStack.AddLast(currentMusic);
 
+        _currentMusicVolumeScale = volumeScale;
         fading = 0.001f;
     }
 
@@ -269,11 +291,13 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         var fraction = Mathf.Clamp01(fading / crossFadeTime);
         var logFraction = fraction.ToLogarithmicFraction();
 
+        float volume = MusicVolume * _currentMusicVolumeScale;
+
         if (previousMusic)
-            previousMusic.volume = Mathf.Max(0, MusicVolume * (1f - logFraction));
+            previousMusic.volume = Mathf.Max(0, volume * (1f - logFraction));
 
         if (currentMusic)
-            currentMusic.volume = logFraction * MusicVolume;
+            currentMusic.volume = logFraction * volume;
 
         if (fraction >= 1f)
         {
