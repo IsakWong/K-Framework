@@ -38,6 +38,11 @@ public class TModule<T> : MonoBehaviour, IModule  where T : MonoBehaviour, IModu
         name = $"[{GetType().Name}]";
     }
 
+    protected void OnDestroy()
+    {
+        KGameCore.Instance.Modules.Remove(typeof(T).Name);
+    }
+
     public virtual void OnInit()
     {
         EnhancedLog.Info("Module", $"{GetType().Name} Init");

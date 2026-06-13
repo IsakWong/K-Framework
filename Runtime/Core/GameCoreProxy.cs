@@ -48,6 +48,7 @@ public class GameCoreProxy : MonoBehaviour
 
     public IEnumerator ShutdownModules()
     {
+        EnhancedLog.Log("Shutting down...");
         if (shutdown)
         {
             yield return null;

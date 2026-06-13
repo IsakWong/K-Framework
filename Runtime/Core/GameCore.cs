@@ -111,9 +111,9 @@ public class KGameCore
     public T GetModule<T>() where T : class, IModule
     {
         var name = typeof(T).Name;
-        if (Modules.ContainsKey(name))
+        if (Modules.TryGetValue(name, out var module) && module != null)
         {
-            return Modules[name] as T;
+            return module as T;
         }
 
         return null;
@@ -124,7 +124,7 @@ public class KGameCore
     /// </summary>
     public IModule GetModule(string name)
     {
-        if (Modules.TryGetValue(name, out var module))
+        if (Modules.TryGetValue(name, out var module) && module != null)
         {
             return module;
         }
@@ -138,10 +138,13 @@ public class KGameCore
             name = typeof(T).Name;
         }
 
-        if (Modules.ContainsKey(name))
+        if (Modules.TryGetValue(name, out var existing) && existing != null)
         {
-            return Modules[name] as T;
+            return existing as T;
         }
+
+        // 移除可能存在的已销毁条目（Unity Object 假 null：ContainsKey=true 但值==null）
+        Modules.Remove(name);
 
         var count = proxy.gameObject.transform.childCount;
         T inst = null;
