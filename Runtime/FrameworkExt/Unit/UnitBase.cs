@@ -61,7 +61,12 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
     /// When true, _Destroy returns the unit to the pool instead of destroying it.
     /// </summary>
     public virtual bool Recyclable => false;
-    
+
+    /// <summary>
+    /// 跨场景持久化标志。为 true 时 _Destroy() 不会销毁 GameObject，且 UnitModule Shutdown 会跳过此 Unit。
+    /// </summary>
+    [NonSerialized] public bool PreventDestroy;
+
     #endregion
 
     #region Events
@@ -357,6 +362,25 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
     }
 
     /// <summary>
+    /// 场景切换 / 模块关闭时的静默清理。跳过 Die → OnDie 流程（不触发死亡信号、爆炸等游戏逻辑）。
+    /// 直接进入 Dead → Deleting → OnDelete 清理链，仅做资源释放。
+    /// </summary>
+    public void ShutdownCleanup()
+    {
+        if (_lifecycleState >= UnitLifecycleState.Deleting)
+            return;
+
+        if (_lifecycleState == UnitLifecycleState.Alive)
+            SetLifecycleState(UnitLifecycleState.Dead);
+
+        if (_lifecycleState != UnitLifecycleState.Dead)
+            return;
+
+        SetLifecycleState(UnitLifecycleState.Deleting);
+        UnitModule.Instance._toDeleteUnits.Add(this);
+    }
+
+    /// <summary>
     /// Called by UnitModule when deletion is processed. Override to add custom cleanup logic.
     /// </summary>
     public void OnDelete()
@@ -391,6 +415,8 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
 
     public void _Destroy()
     {
+        if (PreventDestroy) return;
+
         // Only recycle if the subclass opts in AND the instance came from a pool
         if (Recyclable && PoolManager.Instance != null && PoolManager.Instance.IsPooled(gameObject))
         {
@@ -444,6 +470,16 @@ public class UnitBase : MonoBehaviour, IGameplayLifeCycle, IPoolable
         {
             Spawn();
         }
+    }
+
+    /// <summary>
+    /// 重置生命周期状态到 None，用于跨场景保留后重新注册到新 UnitModule。
+    /// </summary>
+    public void ResetLifecycleState()
+    {
+        _lifecycleState = UnitLifecycleState.None;
+        EnableOnLogic = false;
+        UpdateGameObjectName();
     }
 
     /// <summary>

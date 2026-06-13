@@ -470,12 +470,24 @@ public class UnitModule : TModule<UnitModule>
             var unitsToDelete = _units.ToArray();
             foreach (var unit in unitsToDelete)
             {
-                if(unit == null)
-                    _units.Remove(unit);
-                
-                if (unit != null && !unit.IsDeleted)
+                if (unit == null)
                 {
-                    unit.Delete();
+                    _units.Remove(unit);
+                    continue;
+                }
+
+                if (unit.PreventDestroy)
+                {
+                    _units.Remove(unit);
+                    _logicUnits.Remove(unit);
+                    logicDirtyUnits.Remove(unit);
+                    OnRemoveUnit?.Invoke(unit);
+                    continue;
+                }
+
+                if (!unit.IsDeleted)
+                {
+                    unit.ShutdownCleanup();
                 }
             }
 
