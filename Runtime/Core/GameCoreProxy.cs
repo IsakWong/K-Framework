@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using KFramework;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -56,17 +57,14 @@ public class GameCoreProxy : MonoBehaviour
 
         shutdown = true;
         Queue<IModule> modules = new();
-        foreach (var module in KGameCore.Instance.Modules)
-        {
-            modules.Enqueue(module.Value);
-        }
+        KGameCore.Instance.GetAllModules(modules);
 
         while (modules.Count > 0)
         {
             var first = modules.Peek();
             if (first.RequestShutdown())
             {
-                first.OnShutdown();
+                first.Dispose();
                 Destroy(first.GetGameObjectProxy());
                 modules.Dequeue();
             }
@@ -74,7 +72,7 @@ public class GameCoreProxy : MonoBehaviour
             yield return new WaitForFixedUpdate();
         }
 
-        KGameCore.Instance.Modules.Clear();
+        KGameCore.Instance.ClearModules();
         yield return null;
     }
 

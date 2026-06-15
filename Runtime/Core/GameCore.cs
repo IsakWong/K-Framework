@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using Framework.JsonConverter;
+using KFramework;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.UnityConverters.Math;
@@ -10,18 +11,31 @@ using QuaternionConverter = Newtonsoft.Json.UnityConverters.Math.QuaternionConve
 using Vector2Converter = Newtonsoft.Json.UnityConverters.Math.Vector2Converter;
 using Vector3Converter = Newtonsoft.Json.UnityConverters.Math.Vector3Converter;
 
+/// <summary>
+/// 游戏核心 — 服务注册 + 模块管理 + GameMode 调度。
+///
+/// _services — IService（全局永久服务），OnRegisterServices() 注册，批量 Init。
+/// _modules  — IModule（动态装卸模块），RequireModule/AddModule 管理。
+///
+/// 使用方式：
+///   public class MyGameCore : KGameCore
+///   {
+///       protected override void OnRegisterServices()
+///       {
+///           RegisterService(new AssetManager());
+///       }
+///   }
+///   KGameCore.Bootstrap&lt;MyGameCore&gt;();
+///
+/// 不继承则使用默认 KGameCore。
+/// </summary>
 public class KGameCore
 {
-    private static KGameCore _core;
-    public GameCoreProxy proxy;
+    // ═══════════════════════════════════════════════════════════════
+    //  Static
+    // ═══════════════════════════════════════════════════════════════
 
-
-    public KSignal<GameMode> OnAnyModeBegin = new();
-    public KSignal<GameMode> OnAnyModeStart = new();
-    public KSignal<GameMode> OnAnyModeEnd = new ();
-    public KSignal<GameMode, GameMode> OnModeSwitch= new();
-
-    public GameMode CurrentGameMode;
+    internal static KGameCore _core;
 
     public static KGameCore Instance
     {
@@ -30,51 +44,212 @@ public class KGameCore
             if (_core == null)
             {
                 _core = new KGameCore();
-                if (_core.proxy == null)
-                {
-                    GameObject go = new GameObject();
-                    var proxy = go.AddComponent<GameCoreProxy>();
-                    go.name = "[GameCoreProxy]";
-                    GameObject.DontDestroyOnLoad(go);
-                    _core.SetProxy(proxy);
-                }
-                _core.Init();
+                _core.Initialize();
             }
-
             return _core;
         }
     }
 
-    public static KTimerManager GlobalTimers => _core.Timers;
+    public static T Bootstrap<T>() where T : KGameCore, new()
+    {
+        if (_core != null)
+            throw new InvalidOperationException("KGameCore already initialized");
+        _core = new T();
+        _core.Initialize();
+        return (T)_core;
+    }
 
-    /// <summary>
-    /// 静态方法：获取或创建Module（如果不存在会自动创建）
-    /// </summary>
+    public static KTimerManager GlobalTimers => Instance.Timers;
+
     public static T RequireSystem<T>() where T : MonoBehaviour, IModule
-    {
-        return _core.RequireModule<T>();
-    }
+        => Instance.RequireModule<T>();
 
-    /// <summary>
-    /// 静态方法：获取Module（不存在返回null）
-    /// </summary>
     public static T GetSystem<T>() where T : MonoBehaviour, IModule
-    {
-        return _core.GetModule<T>();
-    }
+        => Instance.GetModule<T>();
 
     [Obsolete("Use GetSystem<T>() instead")]
     public static T SystemAt<T>() where T : MonoBehaviour, IModule
+        => Instance.GetModule<T>();
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Service Registry（全局永久服务 IService）
+    // ═══════════════════════════════════════════════════════════════
+
+    private readonly Dictionary<Type, IService> _services = new();
+
+    public int ServiceCount => _services.Count;
+
+    protected void RegisterService<T>(T service) where T : IService
     {
-        return _core.GetModule<T>();
+        if (service == null) throw new ArgumentNullException(nameof(service));
+        var key = typeof(T);
+        if (_services.ContainsKey(key))
+            _services[key].Dispose();
+        _services[key] = service;
     }
+
+    public T GetService<T>() where T : class, IService
+    {
+        return _services.TryGetValue(typeof(T), out var svc) ? svc as T : null;
+    }
+
+    public bool HasService<T>() where T : IService
+    {
+        return _services.ContainsKey(typeof(T));
+    }
+
+    /// <summary>由 KSingleton 自动调用，懒注册到 KGameCore。</summary>
+    internal void TryRegisterService<T>(T service) where T : IService
+    {
+        if (service == null) return;
+        var key = typeof(T);
+        if (!_services.ContainsKey(key))
+            _services[key] = service;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Module Registry（动态装卸模块 IModule）
+    // ═══════════════════════════════════════════════════════════════
+
+    private readonly Dictionary<Type, IModule> _modules = new();
+
+    public int ModuleCount => _modules.Count;
+
+    public T GetModule<T>() where T : class, IModule
+    {
+        return _modules.TryGetValue(typeof(T), out var m) ? m as T : null;
+    }
+
+    [Obsolete("Use GetModule<T>() instead.")]
+    public IModule GetModule(string name)
+    {
+        foreach (var kv in _modules)
+            if (kv.Key.Name == name) return kv.Value;
+        return null;
+    }
+
+    public T RequireModule<T>(string name = null) where T : MonoBehaviour, IModule
+    {
+        if (GetModule<T>() is T existing) return existing;
+        if (name == null) name = typeof(T).Name;
+
+        var count = proxy.gameObject.transform.childCount;
+        for (var i = 0; i < count; i++)
+        {
+            var inst = proxy.gameObject.transform.GetChild(i).GetComponent<T>();
+            if (inst != null)
+            {
+                _modules[typeof(T)] = inst;
+                if (!inst.Initialized) inst.Init();
+                return inst;
+            }
+        }
+
+        var go = new GameObject($"[{name}]");
+        var newInst = go.AddComponent<T>();
+        if (newInst == null) { UnityEngine.Object.Destroy(go); return null; }
+        if (proxy.transform.parent != null)
+            newInst.transform.SetParent(proxy.transform.parent);
+
+        _modules[typeof(T)] = newInst;
+        if (!newInst.Initialized) newInst.Init();
+        return newInst;
+    }
+
+    public IModule AddModule(IModule module)
+    {
+        if (module == null) throw new ArgumentNullException(nameof(module));
+        var key = module.GetType();
+        if (_modules.ContainsKey(key))
+        {
+            Debug.LogWarning($"[KGameCore] Module already registered: {key.Name}, replacing.");
+            _modules[key].Dispose();
+        }
+        _modules[key] = module;
+        if (!module.Initialized) module.Init();
+        return module;
+    }
+
+    internal void GetAllModules(Queue<IModule> outQueue)
+    {
+        foreach (var m in _modules.Values) outQueue.Enqueue(m);
+    }
+
+    internal void ClearModules() => _modules.Clear();
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Legacy
+    // ═══════════════════════════════════════════════════════════════
+
+    [Obsolete("Use GetModule<T>() instead.")]
+    public Dictionary<string, IModule> Modules
+    {
+        get
+        {
+            var dict = new Dictionary<string, IModule>();
+            foreach (var kv in _modules) dict[kv.Key.Name] = kv.Value;
+            return dict;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Initialization
+    // ═══════════════════════════════════════════════════════════════
+
+    protected KGameCore() { StaticInit(); }
+
+    /// <summary>游戏业务覆写，在其中 RegisterService 注册全局服务。</summary>
+    protected virtual void OnRegisterServices() { }
+
+    private void Initialize()
+    {
+        if (proxy == null)
+        {
+            var go = new GameObject();
+            proxy = go.AddComponent<GameCoreProxy>();
+            go.name = "[GameCoreProxy]";
+            UnityEngine.Object.DontDestroyOnLoad(go);
+        }
+
+#if !UNITY_EDITOR
+        StaticInit();
+#endif
+
+        Debug.Log("[KGameCore] Initializing...");
+        DOTween.Init();
+
+        OnRegisterServices();
+
+        foreach (var kv in _services)
+            if (!kv.Value.Initialized) kv.Value.Init();
+
+        Debug.Log($"[KGameCore] Initialized ({_services.Count} services)");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Shutdown
+    // ═══════════════════════════════════════════════════════════════
+
+    public void DisposeAllServices()
+    {
+        foreach (var kv in _services) kv.Value.Dispose();
+        _services.Clear();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  GameMode
+    // ═══════════════════════════════════════════════════════════════
+
+    public KSignal<GameMode> OnAnyModeBegin = new();
+    public KSignal<GameMode> OnAnyModeStart = new();
+    public KSignal<GameMode> OnAnyModeEnd = new();
+    public KSignal<GameMode, GameMode> OnModeSwitch = new();
+
+    public GameMode CurrentGameMode;
 
     public void SwitchGameMode(GameMode value)
     {
-        if (CurrentGameMode == value)
-        {
-            return;
-        }
+        if (CurrentGameMode == value) return;
 
         if (CurrentGameMode)
         {
@@ -84,139 +259,41 @@ public class KGameCore
             CurrentGameMode.gameObject.SetActive(false);
         }
 
-        if (value)
-        {
-            value.gameObject.SetActive(true);
-        }
+        if (value) value.gameObject.SetActive(true);
 
-        Instance.CurrentGameMode = value;
-        if (Instance.CurrentGameMode)
+        CurrentGameMode = value;
+        if (CurrentGameMode)
         {
-            Instance.CurrentGameMode.OnModeAwake();
+            CurrentGameMode.OnModeAwake();
             OnAnyModeBegin?.Invoke(CurrentGameMode);
         }
     }
 
-    public IModule AddModule(IModule module)
-    {
-        var name = module.GetType().Name;
-        module.OnInit();
-        Modules[name] = module;
-        return module;
-    }
+    // ═══════════════════════════════════════════════════════════════
+    //  Proxy & Logic
+    // ═══════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// 获取Module（不存在返回null）
-    /// </summary>
-    public T GetModule<T>() where T : class, IModule
-    {
-        var name = typeof(T).Name;
-        if (Modules.TryGetValue(name, out var module) && module != null)
-        {
-            return module as T;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// 通过名称获取Module
-    /// </summary>
-    public IModule GetModule(string name)
-    {
-        if (Modules.TryGetValue(name, out var module) && module != null)
-        {
-            return module;
-        }
-        return null;
-    }
-
-    public T RequireModule<T>(string name = null) where T : MonoBehaviour, IModule
-    {
-        if (name == null)
-        {
-            name = typeof(T).Name;
-        }
-
-        if (Modules.TryGetValue(name, out var existing) && existing != null)
-        {
-            return existing as T;
-        }
-
-        // 移除可能存在的已销毁条目（Unity Object 假 null：ContainsKey=true 但值==null）
-        Modules.Remove(name);
-
-        var count = proxy.gameObject.transform.childCount;
-        T inst = null;
-        for (var i = 0; i < count; i++)
-        {
-            var it = proxy.gameObject.transform.GetChild(i);
-            inst = it.gameObject.GetComponent<T>();
-            if (inst is not null)
-            {
-                break;
-            }
-        }
-
-        if (inst is not null)
-        {
-            Modules[name] = inst;
-            return inst;
-        }
-
-        var GO = new GameObject($"[{name}]");
-        inst = GO.AddComponent<T>();
-
-        if (inst is null)
-        {
-            Debug.LogError($"[KGameCore] Failed to create module: {name}");
-            UnityEngine.Object.Destroy(GO);
-            return null;
-        }
-
-        if (proxy.transform.parent != null)
-        {
-            inst.transform.SetParent(proxy.transform.parent);
-        }
-
-        Modules[name] = inst;
-        return inst;
-    }
-
-    [Obsolete("Use KGameCore.GetSystem<T>() or GetModule<T>() instead")]
-    public T GetSystemInstance<T>() where T : MonoBehaviour, IModule
-    {
-        return GetModule<T>();
-    }
-
-    public void SetProxy(GameCoreProxy proxy)
-    {
-        this.proxy = proxy;
-    }
-
-    private KGameCore()
-    {
-        StaticInit();
-    }
-
+    public GameCoreProxy proxy;
+    public void SetProxy(GameCoreProxy p) => proxy = p;
     public KTimerManager Timers = new();
 
     public void OnLogic()
     {
         KTime.scaleDeltaTime = Time.fixedDeltaTime;
         Timers.OnLogic(KTime.scaleDeltaTime);
-        foreach (var module in Modules)
-        {
-            module.Value.OnLogic(Time.fixedDeltaTime);
-        }
+        foreach (var m in _modules.Values)
+            m.OnLogic(Time.fixedDeltaTime);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  JSON static init
+    // ═══════════════════════════════════════════════════════════════
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
 #endif
     private static void StaticInit()
     {
-        //初始化一些Unity3D特有的Converter
         JsonConvert.DefaultSettings = () =>
         {
             var settings = new JsonSerializerSettings
@@ -225,36 +302,18 @@ public class KGameCore
                 Converters = new List<JsonConverter>(),
                 ContractResolver = new CamelCasePropertyNamesContractResolver()
             };
-            // Unity 基础类型转换器
             settings.Converters.Add(new Vector2Converter());
             settings.Converters.Add(new Vector3Converter());
             settings.Converters.Add(new Vector4Converter());
             settings.Converters.Add(new Color32Converter());
             settings.Converters.Add(new QuaternionConverter());
-            
-            // Addressables 类型转换器
             settings.Converters.Add(new AssetReferenceConverter());
             settings.Converters.Add(new AssetReferenceTConverter());
-            
             return settings;
         };
     }
 
-    
-
-    private void Init()
-    {
-#if !UNITY_EDITOR
-        Debug.Log("Static initialized");
-        StaticInit();
-#endif
-
-        Debug.Log("KGameCore initialized");
-        DOTween.Init();
-        Debug.Log("DOTween initialized");
-        Modules = new Dictionary<string, IModule>();
-        Debug.Log("Modules config initialized");
-    }
-
-    public Dictionary<string, IModule> Modules;
+    [Obsolete("Use KGameCore.GetSystem<T>() or GetModule<T>() instead")]
+    public T GetSystemInstance<T>() where T : MonoBehaviour, IModule
+        => GetModule<T>();
 }

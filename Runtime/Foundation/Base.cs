@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using KFramework;
+using UnityEngine;
 
 public interface IDataContainer
 {
@@ -11,13 +12,15 @@ public interface IDataContainer
 
 
 /// <summary>
-/// 纯 C# 单例基类，不依赖 MonoBehaviour。
-/// 无法动态卸载，常用于 Log、AssetManager、EventBus 等。
-/// 首次访问 Instance 时自动注册到 ServiceLocator。
-/// 子类可 override OnServiceRegistered() 来注册接口类型。
+/// 纯 C# 单例基类 — 不依赖 MonoBehaviour，实现 IService 接口。
+///
+/// 生命周期：
+///   首次访问 Instance → new T() → 注册到 ServiceLocator + KGameCore → Init()
+///
+/// 子类覆写 OnServiceInit() 做初始化，OnServiceDispose() 做清理。
+/// 旧代码 OnServiceRegistered() 仍可用，标记为 Obsolete。
 /// </summary>
-/// <typeparam name="T"></typeparam>
-public class KSingleton<T> where T : KSingleton<T>, new()
+public class KSingleton<T> : IService where T : KSingleton<T>, new()
 {
     private static T instance;
 
@@ -28,20 +31,42 @@ public class KSingleton<T> where T : KSingleton<T>, new()
             if (instance == null)
             {
                 instance = new T();
-                // 自动注册具体类型到 ServiceLocator
                 ServiceLocator.Register(typeof(T), instance);
-                instance.OnServiceRegistered();
+                // 也注册到 KGameCore
+                if (KGameCore._core != null)
+                    KGameCore.Instance.TryRegisterService(instance);
+                ((IService)instance).Init();
             }
-
             return instance;
         }
     }
 
-    /// <summary>
-    /// 在单例创建并注册到 ServiceLocator 后调用。
-    /// 子类 override 此方法来注册接口类型，例如：
-    /// <code>ServiceLocator.Register&lt;IAssetService&gt;(this);</code>
-    /// </summary>
+    #region IService
+
+    bool IService.Initialized => _initialized;
+    private bool _initialized;
+
+    void IService.Init()
+    {
+        if (_initialized) return;
+        OnServiceInit();
+#pragma warning disable CS0618
+        OnServiceRegistered();
+#pragma warning restore CS0618
+        _initialized = true;
+    }
+
+    void IService.Dispose()
+    {
+        OnServiceDispose();
+    }
+
+    #endregion
+
+    protected virtual void OnServiceInit() { }
+    protected virtual void OnServiceDispose() { }
+
+    [System.Obsolete("Use OnServiceInit() instead.")]
     protected virtual void OnServiceRegistered() { }
 
     protected KSingleton()
