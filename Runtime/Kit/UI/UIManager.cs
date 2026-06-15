@@ -7,7 +7,10 @@ using UnityEngine;
 [DefaultExecutionOrder(GameCoreProxy.ModuleOrder)]
 public class UIManager : PersistentSingleton<UIManager>, IUIService
 {
-    public static string UIPrefix = "Assets/UI/";
+    /// <summary>
+    /// UI 预制体路径前缀。业务在 GameCore.OnInit() 中设置。
+    /// </summary>
+    public string UIPrefix = "Assets/UI/";
 
     private readonly List<UIPanel> _uiPanels = new();
 
@@ -59,6 +62,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
 
     private void InitOverlayCanvas()
     {
+        if (CanvasInstance.Instance == null) return;
         _overlayCanvas = CanvasInstance.Instance.BehaviourInstance;
         if (!_overlayCanvas) return;
 

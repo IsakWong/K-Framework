@@ -78,7 +78,7 @@ public class SoundBuilder
 
         // Volume: base → override → concurrent decay
         float baseVol = overrideVolume >= 0 ? overrideVolume : audioParams.volume;
-        soundEmitter.audioSource.volume = soundManager.GetEffectiveVolume(category, baseVol);
+        soundEmitter.audioSource.volume = soundManager.GetEffectiveVolume(category, baseVol) * soundManager.SFXVolume;
 
         // Spatial
         if (spatialOverride >= 0f)

@@ -14,14 +14,18 @@ using Vector3Converter = Newtonsoft.Json.UnityConverters.Math.Vector3Converter;
 /// <summary>
 /// 游戏核心 — 服务注册 + 模块管理 + GameMode 调度。
 ///
-/// _services — IService（全局永久服务），OnRegisterServices() 注册，批量 Init。
+/// _services — IService（全局永久服务），OnInit() 注册，统一批量 Init。
 /// _modules  — IModule（动态装卸模块），RequireModule/AddModule 管理。
+///
+/// 生命周期：
+///   Bootstrap → OnInit() → 批量 Init 所有服务 → OnPostInit()
 ///
 /// 使用方式：
 ///   public class MyGameCore : KGameCore
 ///   {
-///       protected override void OnRegisterServices()
+///       protected override void OnInit()
 ///       {
+///           ConfigManager.Instance.ConfigPrefix = "Assets/MyGame/Config/";
 ///           RegisterService(new AssetManager());
 ///       }
 ///   }
@@ -198,8 +202,28 @@ public class KGameCore
 
     protected KGameCore() { StaticInit(); }
 
+    // ─── Lifecycle hooks（业务子类覆写） ───
+
+    /// <summary>
+    /// 业务初始化入口。在此注册服务、设置配置参数。
+    /// 此阶段服务只注册不 Init，所有服务在 OnInit 完成后统一批量 Init。
+    /// </summary>
+    protected virtual void OnInit()
+    {
+#pragma warning disable CS0618
+        OnRegisterServices();
+#pragma warning restore CS0618
+    }
+
+    /// <summary>所有服务 Init 完成后回调。服务间依赖此时已就绪。</summary>
+    protected virtual void OnPostInit() { }
+
     /// <summary>游戏业务覆写，在其中 RegisterService 注册全局服务。</summary>
+    [Obsolete("Override OnInit() instead.")]
     protected virtual void OnRegisterServices() { }
+
+    /// <summary>是否正处于批量注册阶段（OnInit 执行期间）。KSingleton 据此延迟 Init。</summary>
+    internal bool _batchRegistering;
 
     private void Initialize()
     {
@@ -218,10 +242,17 @@ public class KGameCore
         Debug.Log("[KGameCore] Initializing...");
         DOTween.Init();
 
-        OnRegisterServices();
+        // Phase 1: 业务注册服务（只注册，不 Init）
+        _batchRegistering = true;
+        OnInit();
+        _batchRegistering = false;
 
+        // Phase 2: 统一批量 Init（服务间引用不会拿空）
         foreach (var kv in _services)
             if (!kv.Value.Initialized) kv.Value.Init();
+
+        // Phase 3: 所有服务就绪
+        OnPostInit();
 
         Debug.Log($"[KGameCore] Initialized ({_services.Count} services)");
     }

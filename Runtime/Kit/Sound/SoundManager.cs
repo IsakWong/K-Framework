@@ -234,8 +234,9 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         }
     }
 
-    public void PlayMusic(AudioClip clip, SoundCategory category = null)
+    public void PlayMusic(AudioClip clip, SoundCategory category = null, float volumeScale = 1.0f)
     {
+        MusicVolume = volumeScale;
         if (clip == null) return;
         if (currentMusic && currentMusic.clip == clip) return;
 
@@ -254,6 +255,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
     }
 
     public float MusicVolume { get; set; } = 1.0f;
+    public float SFXVolume { get; set; } = 1.0f;
 
     private void Update()
     {

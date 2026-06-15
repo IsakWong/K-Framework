@@ -1,15 +1,6 @@
 using KFramework;
 using UnityEngine;
 
-public interface IDataContainer
-{
-    bool GetData<T>(string name, out T t) where T : class;
-    bool HasData<T>(string name);
-
-    bool HasKey(string name);
-    void SetData<T>(string name, T t);
-}
-
 
 /// <summary>
 /// 纯 C# 单例基类 — 不依赖 MonoBehaviour，实现 IService 接口。
@@ -32,10 +23,12 @@ public class KSingleton<T> : IService where T : KSingleton<T>, new()
             {
                 instance = new T();
                 ServiceLocator.Register(typeof(T), instance);
-                // 也注册到 KGameCore
-                if (KGameCore._core != null)
-                    KGameCore.Instance.TryRegisterService(instance);
-                ((IService)instance).Init();
+                var core = KGameCore._core;
+                if (core != null)
+                    core.TryRegisterService(instance);
+                // 批量注册阶段不 Init，由 KGameCore 统一调用
+                if (core == null || !core._batchRegistering)
+                    ((IService)instance).Init();
             }
             return instance;
         }

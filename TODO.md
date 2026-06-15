@@ -40,7 +40,7 @@
 | 2 | **GameMode 耦合业务** | 🟡中 | `OnPlayerDeath/OnPlayerRespawn` 等业务回调在框架层 | 改为泛型事件或移到扩展层 |
 | 3 | **UnitModule 封装不足** | 🟡中 | `_toSpawnUnits` 等内部队列为 public | 改为 internal 或只暴露方法 |
 | 4 | **线程安全** | 🟢低 | 所有 Manager 无线程保护 | 加锁或标注 `[MainThread]` 限制 |
-| 5 | **硬编码路径** | 🟡中 | `UIManager.UIPrefix` / `ConfigManager.ConfigPrefix` | 移至 GameCoreConfig ScriptableObject |
+| 5 | **硬编码路径** | 🟢低 | `UIManager.UIPrefix` / `ConfigManager.ConfigPrefix` | 已改为实例属性，业务在 GameCore.OnInit() 中配置 |
 | 6 | **测试覆盖不足** | 🟡中 | 仅 Signal + PersistentData 有简易测试 | 利用 ServiceLocator + Mock 补充单元测试 |
 
 ## 推荐改进路线图

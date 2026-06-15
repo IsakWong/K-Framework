@@ -166,6 +166,8 @@ public class UIPanel : MonoBehaviour
 
         gameObject.SetActive(true);
 
+        OnBeforeOpen();
+
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, true);
 
@@ -286,6 +288,9 @@ public class UIPanel : MonoBehaviour
     // ════════════════════════════════════════════════
     // 生命周期回调（业务重写）
     // ════════════════════════════════════════════════
+
+    /// <summary>面板激活后、动画播放前调用。默认空实现。子类可在此绑定数据，确保动画播前 UI 已就绪。</summary>
+    protected virtual void OnBeforeOpen() { }
 
     /// <summary>面板完整打开后调用（动画播完）。默认行为：触发 OnPanelOpen 信号、播 BGM。</summary>
     protected virtual void OnOpen()

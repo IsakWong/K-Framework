@@ -5,12 +5,13 @@ namespace Framework.Settings
 {
     public class Settings
     {
-        // Define settings properties here
         public int volume;
+        public int musicVolume = 100;
+        public int sfxVolume = 100;
         public int brightness;
         public int QualityLevel;
-        public bool fullscreen=true;
-        public bool ShowMainUI=true;
+        public bool fullscreen = true;
+        public bool ShowMainUI = true;
     }
 
 

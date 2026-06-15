@@ -11,9 +11,9 @@ namespace Framework.Config
     public class ConfigManager : KSingleton<ConfigManager>, IConfigService
     {
         /// <summary>
-        /// 全局配置文件位置
+        /// 全局配置文件位置。业务在 GameCore.OnInit() 中设置。
         /// </summary>
-        public static string ConfigPrefix = "Assets/Config/";
+        public string ConfigPrefix = "Assets/Config/";
 
         public SerializedDictionary<string, ConfigObject> AllConfigs = new();
 
