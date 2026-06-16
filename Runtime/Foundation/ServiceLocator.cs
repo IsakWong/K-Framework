@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using KFramework;
 using UnityEngine;
 
 /// <summary>
@@ -151,10 +152,10 @@ public static class ServiceLocator
     /// </summary>
     public static void Reset()
     {
-        foreach (var kv in _services)
+        foreach (var service in new List<object>(_services.Values))
         {
-            if (kv.Value is IService service)
-                service.Dispose();
+            if (service is IService svc)
+                svc.Dispose();
         }
         _services.Clear();
     }
@@ -169,10 +170,10 @@ public static class ServiceLocator
     /// </summary>
     public static void InitAllServices()
     {
-        foreach (var kv in _services)
+        foreach (var service in new List<object>(_services.Values))
         {
-            if (kv.Value is IService service && !service.Initialized)
-                service.Init();
+            if (service is IService svc && !svc.Initialized)
+                svc.Init();
         }
     }
 
@@ -182,10 +183,10 @@ public static class ServiceLocator
     /// </summary>
     public static void DisposeAllServices()
     {
-        foreach (var kv in _services)
+        foreach (var service in new List<object>(_services.Values))
         {
-            if (kv.Value is IService service)
-                service.Dispose();
+            if (service is IService svc)
+                svc.Dispose();
         }
         _services.Clear();
     }

@@ -192,6 +192,8 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask CloseAsyncInternal()
     {
+        OnBeforeClose();
+
         Visible = false;
         Interactable = false;
 
@@ -291,6 +293,9 @@ public class UIPanel : MonoBehaviour
 
     /// <summary>面板激活后、动画播放前调用。默认空实现。子类可在此绑定数据，确保动画播前 UI 已就绪。</summary>
     protected virtual void OnBeforeOpen() { }
+
+    /// <summary>面板关闭前、动画播放前调用。默认空实现。子类可在此清理资源。</summary>
+    protected virtual void OnBeforeClose() { }
 
     /// <summary>面板完整打开后调用（动画播完）。默认行为：触发 OnPanelOpen 信号、播 BGM。</summary>
     protected virtual void OnOpen()
