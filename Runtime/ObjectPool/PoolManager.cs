@@ -33,7 +33,7 @@ public class PoolManager : PersistentSingleton<PoolManager>, IPoolService
     // instance InstanceID → prefab InstanceID (for release without knowing prefab)
     private readonly Dictionary<int, int> _instanceToPool = new();
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IPoolService>(this);
     }

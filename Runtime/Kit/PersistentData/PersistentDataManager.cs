@@ -30,7 +30,7 @@ public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersist
     /// </summary>
     private bool enableEncryption = false;
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IPersistentDataService>(this);
     }

@@ -20,7 +20,7 @@ namespace Framework.Settings
         private const string SettingsFileName = "Settings.json";
         Settings _settings;
 
-        protected override void OnServiceRegistered()
+        protected override void OnServiceInit()
         {
             ServiceLocator.Register<ISettingsService>(this);
         }

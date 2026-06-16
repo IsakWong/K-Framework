@@ -43,7 +43,7 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         InitOverlayCanvas();
     }
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IUIService>(this);
     }

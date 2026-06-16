@@ -17,7 +17,7 @@ namespace Framework.Config
 
         public SerializedDictionary<string, ConfigObject> AllConfigs = new();
 
-        protected override void OnServiceRegistered()
+        protected override void OnServiceInit()
         {
             ServiceLocator.Register<IConfigService>(this);
         }

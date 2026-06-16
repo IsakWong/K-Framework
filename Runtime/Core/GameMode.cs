@@ -178,7 +178,7 @@ public class GameMode : MonoBehaviour
     {
         if (SceneMusic != null)
         {
-            SoundManager.Instance.PlayMusic(SceneMusic, volumeScale: SceneMusicVolume);
+            SoundManager.Instance.PlayMusic(SceneMusic);
         }
         
         EnhancedLog.Info("GameMode", $"{gameObject.name} {GetType().Name} OnModeStart");

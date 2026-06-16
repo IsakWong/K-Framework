@@ -23,10 +23,8 @@ public class KSingleton<T> : IService where T : KSingleton<T>, new()
             {
                 instance = new T();
                 ServiceLocator.Register(typeof(T), instance);
+                // 批量注册阶段不 Init，由 KGameCore 统一调用 ServiceLocator.InitAllServices()
                 var core = KGameCore._core;
-                if (core != null)
-                    core.TryRegisterService(instance);
-                // 批量注册阶段不 Init，由 KGameCore 统一调用
                 if (core == null || !core._batchRegistering)
                     ((IService)instance).Init();
             }

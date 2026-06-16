@@ -56,7 +56,7 @@ public class EventBus : KSingleton<EventBus>, IEventBusService
     /// <summary>粘性事件缓存（最后一次发布的事件实例）</summary>
     private readonly Dictionary<Type, object> _stickyEvents = new();
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IEventBusService>(this);
     }

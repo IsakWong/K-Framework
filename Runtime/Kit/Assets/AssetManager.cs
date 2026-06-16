@@ -18,7 +18,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     // Cache for loaded assets to prevent duplicate loading
     private Dictionary<string, AsyncOperationHandle> _loadedHandles = new Dictionary<string, AsyncOperationHandle>();
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IAssetService>(this);
     }

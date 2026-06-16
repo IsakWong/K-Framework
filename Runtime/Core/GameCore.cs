@@ -12,13 +12,14 @@ using Vector2Converter = Newtonsoft.Json.UnityConverters.Math.Vector2Converter;
 using Vector3Converter = Newtonsoft.Json.UnityConverters.Math.Vector3Converter;
 
 /// <summary>
-/// 游戏核心 — 服务注册 + 模块管理 + GameMode 调度。
+/// 游戏核心 — Module 管理 + GameMode 调度。
 ///
-/// _services — IService（全局永久服务），OnInit() 注册，统一批量 Init。
+/// IService 注册与生命周期统一由 ServiceLocator 管理，KGameCore 不再维护独立 _services 字典。
+///
 /// _modules  — IModule（动态装卸模块），RequireModule/AddModule 管理。
 ///
 /// 生命周期：
-///   Bootstrap → OnInit() → 批量 Init 所有服务 → OnPostInit()
+///   Bootstrap → OnInit() → ServiceLocator.InitAllServices() → OnPostInit()
 ///
 /// 使用方式：
 ///   public class MyGameCore : KGameCore
@@ -26,7 +27,6 @@ using Vector3Converter = Newtonsoft.Json.UnityConverters.Math.Vector3Converter;
 ///       protected override void OnInit()
 ///       {
 ///           ConfigManager.Instance.ConfigPrefix = "Assets/MyGame/Config/";
-///           RegisterService(new AssetManager());
 ///       }
 ///   }
 ///   KGameCore.Bootstrap&lt;MyGameCore&gt;();
@@ -74,42 +74,6 @@ public class KGameCore
     [Obsolete("Use GetSystem<T>() instead")]
     public static T SystemAt<T>() where T : MonoBehaviour, IModule
         => Instance.GetModule<T>();
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Service Registry（全局永久服务 IService）
-    // ═══════════════════════════════════════════════════════════════
-
-    private readonly Dictionary<Type, IService> _services = new();
-
-    public int ServiceCount => _services.Count;
-
-    protected void RegisterService<T>(T service) where T : IService
-    {
-        if (service == null) throw new ArgumentNullException(nameof(service));
-        var key = typeof(T);
-        if (_services.ContainsKey(key))
-            _services[key].Dispose();
-        _services[key] = service;
-    }
-
-    public T GetService<T>() where T : class, IService
-    {
-        return _services.TryGetValue(typeof(T), out var svc) ? svc as T : null;
-    }
-
-    public bool HasService<T>() where T : IService
-    {
-        return _services.ContainsKey(typeof(T));
-    }
-
-    /// <summary>由 KSingleton 自动调用，懒注册到 KGameCore。</summary>
-    internal void TryRegisterService<T>(T service) where T : IService
-    {
-        if (service == null) return;
-        var key = typeof(T);
-        if (!_services.ContainsKey(key))
-            _services[key] = service;
-    }
 
     // ═══════════════════════════════════════════════════════════════
     //  Module Registry（动态装卸模块 IModule）
@@ -248,13 +212,12 @@ public class KGameCore
         _batchRegistering = false;
 
         // Phase 2: 统一批量 Init（服务间引用不会拿空）
-        foreach (var kv in _services)
-            if (!kv.Value.Initialized) kv.Value.Init();
+        ServiceLocator.InitAllServices();
 
         // Phase 3: 所有服务就绪
         OnPostInit();
 
-        Debug.Log($"[KGameCore] Initialized ({_services.Count} services)");
+        Debug.Log($"[KGameCore] Initialized ({ServiceLocator.Count} services)");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -263,8 +226,7 @@ public class KGameCore
 
     public void DisposeAllServices()
     {
-        foreach (var kv in _services) kv.Value.Dispose();
-        _services.Clear();
+        ServiceLocator.DisposeAllServices();
     }
 
     // ═══════════════════════════════════════════════════════════════

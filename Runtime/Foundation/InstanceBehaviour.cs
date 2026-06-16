@@ -2,6 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// [Obsolete] Use PersistentSingleton&lt;T&gt; instead.
+/// PersistentSingleton provides IService integration and ServiceLocator registration.
+/// </summary>
+[System.Obsolete("Use PersistentSingleton<T> instead.")]
 [DefaultExecutionOrder(GameCoreProxy.GameModeOrder - 10)]
 public class InstanceBehaviour<T> : MonoBehaviour where T : Component
 {

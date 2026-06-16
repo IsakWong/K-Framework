@@ -133,7 +133,7 @@ public class EnhancedLog : KSingleton<EnhancedLog>, ILogService
         InitFileLogger();
     }
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<ILogService>(this);
     }

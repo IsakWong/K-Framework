@@ -37,7 +37,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
         }
     }
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<ISoundService>(this);
     }

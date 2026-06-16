@@ -116,7 +116,7 @@ public class UnitDebugOverlay : MonoBehaviour
             if (kvp.Value > 0)
             {
                 string colorHex = ColorUtility.ToHtmlStringRGB(GetStateColor(kvp.Key));
-                GUILayout.Label($"  <color=#{colorHex}>¡ñ</color> {kvp.Key}: <b>{kvp.Value}</b>", _labelStyle);
+                GUILayout.Label($"  <color=#{colorHex}>ï¿½ï¿½</color> {kvp.Key}: <b>{kvp.Value}</b>", _labelStyle);
             }
         }
     }
@@ -137,7 +137,7 @@ public class UnitDebugOverlay : MonoBehaviour
             string colorHex = ColorUtility.ToHtmlStringRGB(stateColor);
             
             _sb.Clear();
-            _sb.Append($"  <color=#{colorHex}>¡ñ</color> ");
+            _sb.Append($"  <color=#{colorHex}>ï¿½ï¿½</color> ");
             _sb.Append($"<b>{unit.name}</b> ");
             _sb.Append($"({unit.GetType().Name}) - ");
             _sb.Append($"<color=#{colorHex}>{unit.LifecycleState}</color>");

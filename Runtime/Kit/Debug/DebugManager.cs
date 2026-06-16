@@ -40,7 +40,7 @@ public class DebugManager : PersistentSingleton<DebugManager>, IDebugService
     
     private List<DrawGizmosElement> _gizmosElements = new();
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IDebugService>(this);
     }

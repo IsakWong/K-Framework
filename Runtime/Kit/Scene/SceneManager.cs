@@ -62,7 +62,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     [Tooltip("切换主场景时是否自动将 GameMode 置空")]
     public bool ResetGameModeOnSwitch = true;
 
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<ISceneService>(this);
     }

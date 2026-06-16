@@ -10,7 +10,7 @@ public class VfxEmmiter : MonoBehaviour
 
 public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
 {
-    protected override void OnServiceRegistered()
+    protected override void OnServiceInit()
     {
         ServiceLocator.Register<IVfxService>(this);
     }

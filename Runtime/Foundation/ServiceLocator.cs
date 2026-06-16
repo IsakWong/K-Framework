@@ -151,6 +151,42 @@ public static class ServiceLocator
     /// </summary>
     public static void Reset()
     {
+        foreach (var kv in _services)
+        {
+            if (kv.Value is IService service)
+                service.Dispose();
+        }
+        _services.Clear();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  生命周期批量管理（由 KGameCore 驱动）
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 统一初始化所有已注册的 IService（跳过已初始化的）。
+    /// 由 KGameCore.Initialize() 在 OnInit() 之后调用。
+    /// </summary>
+    public static void InitAllServices()
+    {
+        foreach (var kv in _services)
+        {
+            if (kv.Value is IService service && !service.Initialized)
+                service.Init();
+        }
+    }
+
+    /// <summary>
+    /// 释放所有已注册的 IService 并清空注册表。
+    /// 由 KGameCore.DisposeAllServices() 或应用退出时调用。
+    /// </summary>
+    public static void DisposeAllServices()
+    {
+        foreach (var kv in _services)
+        {
+            if (kv.Value is IService service)
+                service.Dispose();
+        }
         _services.Clear();
     }
 }
