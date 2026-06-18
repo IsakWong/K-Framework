@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 
 namespace KFramework.Editor
 {
     /// <summary>
-    /// 工具页面注册表，通过 TypeCache 自动发现所有带 KToolPageAttribute 的页面类型
+    /// 工具页面注册表，自动发现所有实现 IKToolPage 的类型。
+    /// 页面元数据（Name/Kit/Priority）直接通过接口属性获取。
     /// </summary>
     public static class KToolPageRegistry
     {
@@ -36,14 +36,10 @@ namespace KFramework.Editor
             _instances = new Dictionary<Type, IKToolPage>();
             _entries = new List<PageEntry>();
 
-            var types = TypeCache.GetTypesWithAttribute<KToolPageAttribute>();
+            var types = TypeCache.GetTypesDerivedFrom<IKToolPage>();
             foreach (var type in types)
             {
                 if (type.IsAbstract || type.IsGenericTypeDefinition) continue;
-                if (!typeof(IKToolPage).IsAssignableFrom(type)) continue;
-
-                var attr = (KToolPageAttribute)Attribute.GetCustomAttribute(type, typeof(KToolPageAttribute));
-                if (attr == null) continue;
 
                 try
                 {
@@ -52,9 +48,9 @@ namespace KFramework.Editor
                     _entries.Add(new PageEntry
                     {
                         Type = type,
-                        Name = attr.Name,
-                        Kit = attr.Kit,
-                        Priority = attr.Priority,
+                        Name = instance.PageName ?? type.Name,
+                        Kit = instance.Kit ?? "System",
+                        Priority = instance.Priority,
                         Instance = instance
                     });
                 }

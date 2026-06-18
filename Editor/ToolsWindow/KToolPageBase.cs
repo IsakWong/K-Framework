@@ -12,6 +12,7 @@ namespace KFramework.Editor
     public abstract class KToolPageBase : IKToolPage
     {
         public abstract string PageName { get; }
+        public virtual string Kit => "System";
         public virtual int Priority => 0;
 
         protected readonly KEditorSubscriber Subscriber = new();

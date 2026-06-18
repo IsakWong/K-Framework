@@ -8,6 +8,7 @@ namespace KFramework.Editor
     public interface IKToolPage
     {
         string PageName { get; }
+        string Kit { get; }
         int Priority { get; }
         void OnEnable();
         void OnDisable();

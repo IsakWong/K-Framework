@@ -21,7 +21,7 @@ namespace KFramework.Editor
         {
             var window = GetWindow<KFrameworkToolsWindow>("KFramework");
             window.minSize = new Vector2(800, 500);
-            window.Show();
+            window.Show(false);
         }
 
         private void OnEnable()
@@ -55,7 +55,7 @@ namespace KFramework.Editor
             {
                 EditorGUILayout.HelpBox(
                     "未找到任何注册的工具页面。\n\n" +
-                    "创建一个实现 IKToolPage 接口并标记 [KToolPage] 属性的类即可自动注册。",
+                    "创建一个实现 IKToolPage 接口的类即可自动注册。",
                     MessageType.Info);
                 return;
             }
