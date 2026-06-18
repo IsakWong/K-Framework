@@ -307,6 +307,7 @@ public class UnitModule : TModule<UnitModule>
             unit.OnSpawn();
             _units.Add(unit);
             OnAddUnit?.Invoke(unit);
+            Debug.Log($"[UnitModule] Spawned: {unit.gameObject.name} → {unit.LifecycleState}");
         }
     }
 
@@ -336,6 +337,7 @@ public class UnitModule : TModule<UnitModule>
             }
 
             unit.OnDie();
+            Debug.Log($"[UnitModule] Died: {unit.gameObject.name} → {unit.LifecycleState}");
         }
     }
 

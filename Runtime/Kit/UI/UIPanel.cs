@@ -329,7 +329,7 @@ public class UIPanel : MonoBehaviour
     // 工具
     // ════════════════════════════════════════════════
 
-    private UIAnimation GetEffectiveAnimation()
+    protected virtual UIAnimation GetEffectiveAnimation()
     {
         if (PanelAnimation != null) return PanelAnimation;
         if (UIManager.Instance?.PanelAnimation != null) return UIManager.Instance.PanelAnimation;

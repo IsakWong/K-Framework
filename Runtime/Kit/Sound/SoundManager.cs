@@ -197,6 +197,9 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
     private float fading;
     private AudioSource currentMusic;
     private AudioSource previousMusic;
+
+    /// <summary>当前正在播放的音乐片段（用于外部判断是否需要切换）</summary>
+    public AudioClip CurrentMusicClip => currentMusic ? currentMusic.clip : null;
     private readonly LinkedList<AudioSource> musicStack = new();
     [SerializeField] private AudioMixerGroup musicMixerGroup;
     public AudioMixerGroup MusicMixerGroup { get => musicMixerGroup; set => musicMixerGroup = value; }

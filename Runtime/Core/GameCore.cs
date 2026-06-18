@@ -45,11 +45,6 @@ public class KGameCore
     {
         get
         {
-            if (_core == null)
-            {
-                _core = new KGameCore();
-                _core.Initialize();
-            }
             return _core;
         }
     }

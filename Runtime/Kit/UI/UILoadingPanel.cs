@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,16 +13,62 @@ public class UILoadingPanel : UIPanel
     public Animator Animator;
     public Text LoadingText;
 
+    [Header("色块动画")]
+    public float ShowDuration = 0.35f;
+    public float HideDuration = 0.3f;
+    public Ease ShowEase = Ease.OutCubic;
+    public Ease HideEase = Ease.InCubic;
+
     public void SetLoadingTip(string text)
     {
         if (LoadingText)
             LoadingText.text = text;
     }
 
+    protected override void OnOpen()
+    {
+        base.OnOpen();
+        PlayShowAnimation();
+    }
+
+    protected override UIAnimation GetEffectiveAnimation()
+    {
+        return null;
+    }
+
     protected override void OnClose()
     {
         base.OnClose();
         _loadingCloseCallback?.Invoke();
+    }
+
+    public void PlayShowAnimation()
+    {
+        if (LoadingMask == null)
+        {
+            Debug.LogWarning("[UILoadingPanel] PlayShowAnimation: LoadingMask 为空");
+            return;
+        }
+        var rt = LoadingMask.rectTransform;
+        float w = rt.rect.width > 1 ? rt.rect.width : Screen.width;
+        Debug.Log($"[UILoadingPanel] 色块从左侧滑入, width={w}, rectWidth={rt.rect.width}");
+        rt.anchoredPosition = new Vector2(-w, 0);
+        rt.DOAnchorPosX(0, ShowDuration).SetEase(ShowEase);
+    }
+
+    public void PlayHideAnimation(Action onComplete = null)
+    {
+        if (LoadingMask == null)
+        {
+            Debug.LogWarning("[UILoadingPanel] PlayHideAnimation: LoadingMask 为空");
+            onComplete?.Invoke();
+            return;
+        }
+        var rt = LoadingMask.rectTransform;
+        float w = rt.rect.width > 1 ? rt.rect.width : Screen.width;
+        Debug.Log($"[UILoadingPanel] 色块向右侧滑出, width={w}");
+        rt.DOAnchorPosX(w, HideDuration).SetEase(HideEase)
+            .OnComplete(() => onComplete?.Invoke());
     }
 
     private IEnumerator _task;
@@ -37,7 +84,7 @@ public class UILoadingPanel : UIPanel
             yield return new WaitForSeconds(remainTime);
         if (autoHideUI)
         {
-            UIManager.Instance.CloseAsync(this).Forget();
+            PlayHideAnimation(() => UIManager.Instance.CloseAsync(this).Forget());
         }
         yield return null;
     }

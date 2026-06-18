@@ -176,7 +176,7 @@ public class GameMode : MonoBehaviour
     /// </summary>
     public virtual IEnumerator OnModeStart()
     {
-        if (SceneMusic != null)
+        if (SceneMusic != null && SoundManager.Instance.CurrentMusicClip != SceneMusic)
         {
             SoundManager.Instance.PlayMusic(SceneMusic);
         }
