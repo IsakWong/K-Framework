@@ -35,6 +35,14 @@ public class SoundBuilder
         return this;
     }
 
+    private float overridePitch = -1;
+
+    public SoundBuilder WithPitch(float pitch)
+    {
+        overridePitch = pitch;
+        return this;
+    }
+
     private float overrideVolume = -1;
 
     public SoundBuilder OverrideVolume(float volume)
@@ -92,6 +100,10 @@ public class SoundBuilder
         // Random pitch from category config
         if (category != null && category.randomPitchRange > 0f)
             soundEmitter.WithRandomPitch(category.randomPitchRange);
+
+        // Explicit pitch override (takes precedence over default + random)
+        if (overridePitch >= 0f)
+            soundEmitter.audioSource.pitch = overridePitch;
 
         // Frequent sound tracking
         if (category != null && category.frequentSound)

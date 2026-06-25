@@ -36,7 +36,7 @@ namespace Framework.DebugGUI
         #region Settings
 
         [Header("显示设置")]
-        public bool ShowDebugPanel = true;
+        public bool ShowDebugPanel = false;
         public KeyCode ToggleKey = KeyCode.F1;
         
         [Header("样式设置")]
