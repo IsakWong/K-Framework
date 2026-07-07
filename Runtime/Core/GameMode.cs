@@ -79,6 +79,8 @@ public class GameMode : MonoBehaviour
     private void Start()
     {
         Debug.Assert(_awaken);
+        // 确保 DebugGUI 在启动时即被创建，F3 可随时切换显示
+        _ = Framework.DebugGUI.DebugGUI.Instance;
         if (AutoStart)
         {
             StartCoroutine(StartMode());

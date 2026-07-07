@@ -37,7 +37,7 @@ namespace Framework.DebugGUI
 
         [Header("显示设置")]
         public bool ShowDebugPanel = false;
-        public KeyCode ToggleKey = KeyCode.F1;
+        public KeyCode ToggleKey = KeyCode.F3;
         
         [Header("样式设置")]
         public int FontSize = 14;
