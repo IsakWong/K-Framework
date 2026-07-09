@@ -68,6 +68,13 @@ public class UIPanel : MonoBehaviour
     [SerializeReference]
     public UIAnimation PanelAnimation;
 
+    /// <summary>
+    /// 是否为 Companion 模式（作为另一个面板的附属面板打开）。
+    /// Companion 面板不响应全局快捷键，随 host 面板一起播放开关动画。
+    /// </summary>
+    [NonSerialized]
+    public bool IsCompanion = false;
+
     // ════════════════════════════════════════════════
     // 生命周期信号
     // ════════════════════════════════════════════════
@@ -192,8 +199,38 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask CloseAsyncInternal()
     {
-        OnBeforeClose();
+        BeginCloseSequence();
+        await PlayCloseAnimationAsync();
+        FinishClose();
+    }
 
+    /// <summary>
+    /// 关闭流程前半段：OnBeforeClose + 停交互 + 发 OnPanelBeginClose 信号。
+    /// 由 UIManager 在并行关闭场景下调用，多个面板的 BeginCloseSequence 完成后，
+    /// 再统一通过 WhenAll 播放关闭动画。
+    /// </summary>
+    internal void BeginCloseSequence()
+    {
+        OnBeforeClose();
+        PrepareForClose();
+        OnPanelBeginClose?.Invoke();
+    }
+
+    /// <summary>
+    /// 关闭流程后半段：OnClose（断订阅、SetActive(false)、Pop BGM）。
+    /// 所有动画并行播完后调用。
+    /// </summary>
+    internal void FinishClose()
+    {
+        OnClose();
+    }
+
+    /// <summary>
+    /// 准备关闭（停止交互、设 Visible、处理背景模糊、播音效）。
+    /// 由 UIManager 在并行关闭场景下统一调用，然后再并行播放动画。
+    /// </summary>
+    private void PrepareForClose()
+    {
         Visible = false;
         Interactable = false;
 
@@ -201,20 +238,23 @@ public class UIPanel : MonoBehaviour
             OnBackgroundBlurRequested?.Invoke(this, false);
 
         if (CloseAudio) SoundManager.Instance.PlaySound(CloseAudio);
-        OnPanelBeginClose?.Invoke();
+    }
 
+    /// <summary>
+    /// 仅播放关闭动画（无信号、无 OnClose）。
+    /// 由 UIManager 在并行关闭场景下调用，所有 panel 的动画通过 WhenAll 并行播放。
+    /// </summary>
+    internal async UniTask PlayCloseAnimationAsync()
+    {
         var anim = GetEffectiveAnimation();
-        if (anim != null)
-        {
-            var cg = GetOrAddCanvasGroup();
-            cg.blocksRaycasts = false;
+        if (anim == null) return;
 
-            anim.OnCloseStart?.Invoke(this);
-            await anim.PlayCloseAsync(cg, this.GetCancellationTokenOnDestroy());
-            anim.OnCloseEnd?.Invoke(this);
-        }
+        var cg = GetOrAddCanvasGroup();
+        cg.blocksRaycasts = false;
 
-        OnClose();
+        anim.OnCloseStart?.Invoke(this);
+        await anim.PlayCloseAsync(cg, this.GetCancellationTokenOnDestroy());
+        anim.OnCloseEnd?.Invoke(this);
     }
 
     /// <summary>
@@ -308,6 +348,7 @@ public class UIPanel : MonoBehaviour
     /// <summary>面板完整关闭后调用（动画播完）。默认行为：触发 OnPanelClose、断订阅、SetActive(false)、Pop BGM。</summary>
     protected virtual void OnClose()
     {
+        IsCompanion = false;
         OnPanelClose?.Invoke();
         subscriber.DisconnectAll();
         gameObject.SetActive(false);

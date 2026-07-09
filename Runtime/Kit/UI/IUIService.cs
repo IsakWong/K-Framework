@@ -25,6 +25,12 @@ public interface IUIService
     UniTask<T> PushAsync<T>(UIPanel parent = null, Action<T> configure = null) where T : UIPanel;
     UniTask<UIPanel> PushAsync(UIPanel panel, UIPanel parent = null);
 
+    /// <summary>
+    /// 同时 Push host 与 companion 面板。
+    /// Companion 的开关动画与 host 并行播放；host 关闭时 companion 自动并行关闭。
+    /// </summary>
+    UniTask PushWithCompanionsAsync(UIPanel host, params UIPanel[] companions);
+
     // ─── 切到前台 ───
 
     /// <summary>

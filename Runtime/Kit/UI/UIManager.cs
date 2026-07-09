@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using Framework.Foundation;
 using UnityEngine;
@@ -124,6 +125,58 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     }
 
     // ─────────── Push ───────────
+
+    /// <summary>
+    /// 同时 Push host 面板与 companion 面板。
+    /// Companion 面板的开关动画与 host 并行播放；host 关闭时所有 companion 自动并行关闭。
+    /// Companion 面板标记 <see cref="UIPanel.IsCompanion"/>，不响应独立唤醒逻辑。
+    /// </summary>
+    public async UniTask PushWithCompanionsAsync(UIPanel host, params UIPanel[] companions)
+    {
+        if (host == null) return;
+
+        await WithLock(async () =>
+        {
+            // 1. 标记 companion 面板为 Companion 模式
+            foreach (var companion in companions)
+            {
+                if (companion == null) continue;
+                companion.IsCompanion = true;
+
+                // 如果已在容器中且 Visible（如玩家先 Tab 打开了背包），先瞬间关闭
+                if (IsInContainers(companion) && companion.Visible)
+                {
+                    var savedAnim = companion.PanelAnimation;
+                    companion.PanelAnimation = new UIAnimationNone();
+                    await CloseInternalAsync(companion);
+                    companion.PanelAnimation = savedAnim;
+                }
+            }
+
+            // 2. Push host（正常流程：触发 Suspend 旧栈顶等）
+            await PushInternalAsync(host, null);
+
+            // 3. Push companion 面板到 Overlay 列表，并行播放打开动画
+            var openTasks = new List<UniTask>();
+            foreach (var companion in companions)
+            {
+                if (companion == null) continue;
+                _overlays.Add(companion);
+                companion.transform.SetAsLastSibling();
+                if (!companion.Visible)
+                    openTasks.Add(companion.OpenAsyncInternal());
+            }
+
+            if (openTasks.Count > 0)
+                await UniTask.WhenAll(openTasks);
+
+            // 4. 注册父→子级联：host 关闭时自动带 companion
+            if (_childrenOf.TryGetValue(host, out var existing))
+                existing.AddRange(companions.Where(c => c != null));
+            else
+                _childrenOf[host] = new List<UIPanel>(companions.Where(c => c != null));
+        });
+    }
 
     public async UniTask<T> PushAsync<T>(UIPanel parent = null, Action<T> configure = null) where T : UIPanel
     {
@@ -293,30 +346,73 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
     {
         if (!IsInContainers(panel)) return;
 
-        // 1. 级联 Close 子面板（倒序，保证最后压入的最先关闭）
+        bool wasFullscreen = panel.Kind == UIPanelKind.Fullscreen;
+
+        // 1. 收集 companion 子面板（稍后与 panel 并行关闭）
+        //    普通子面板按原有逻辑倒序串行关闭
+        List<UIPanel> companions = null;
         if (_childrenOf.TryGetValue(panel, out var children) && children.Count > 0)
         {
             var snapshot = new List<UIPanel>(children);
             for (int i = snapshot.Count - 1; i >= 0; i--)
             {
                 var child = snapshot[i];
-                if (child != null && IsInContainers(child))
+                if (child == null || !IsInContainers(child)) continue;
+
+                if (child.IsCompanion)
+                {
+                    companions ??= new List<UIPanel>();
+                    companions.Add(child);
+                }
+                else
+                {
                     await CloseInternalAsync(child);
+                }
             }
         }
 
-        // 2. 关闭自身（Suspend 状态的 Panel.Visible 是 false，跳过动画但仍要走 Close 收尾）
-        bool wasFullscreen = panel.Kind == UIPanelKind.Fullscreen;
-        if (panel.Visible)
-            await panel.CloseAsyncInternal();
-        else
-            panel.gameObject.SetActive(false);
+        // 2. 所有面板执行 BeginCloseSequence（OnBeforeClose + 停交互 + 发信号）
+        var closeTargets = new List<UIPanel> { panel };
+        if (companions != null)
+            closeTargets.AddRange(companions);
 
-        // 3. 从容器移除
+        foreach (var target in closeTargets)
+        {
+            if (target.Visible)
+                target.BeginCloseSequence();
+            else
+                target.gameObject.SetActive(false);
+        }
+
+        // 3. 并行播放所有关闭动画
+        var animTasks = new List<UniTask>();
+        foreach (var target in closeTargets)
+        {
+            if (target.Visible)
+                animTasks.Add(target.PlayCloseAnimationAsync());
+        }
+
+        if (animTasks.Count > 0)
+            await UniTask.WhenAll(animTasks);
+
+        // 4. 完成关闭（OnClose: 断订阅、SetActive(false)）
+        foreach (var target in closeTargets)
+            target.FinishClose();
+
+        // 5. 从容器移除
         RemoveFromContainers(panel);
         UnregisterParent(panel);
 
-        // 4. 若是 Fullscreen 且栈里还有下一张 → 显示新栈顶（Suspend 中的走 Resume，未启动的走 Open）
+        if (companions != null)
+        {
+            foreach (var companion in companions)
+            {
+                RemoveFromContainers(companion);
+                UnregisterParent(companion);
+            }
+        }
+
+        // 6. 若是 Fullscreen 且栈里还有下一张 → 显示新栈顶
         if (wasFullscreen)
         {
             var next = _fullscreenStack.First?.Value;
