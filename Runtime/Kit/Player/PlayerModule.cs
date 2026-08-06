@@ -48,12 +48,11 @@ public class PlayerModule : TModule<PlayerModule>
             LocalPlayerController.OnControllerEnable();
     }
 
-    public void FixedUpdate()
+    protected override void OnModuleLogic(float delta)
     {
         foreach (var controller in ControllerList)
         {
             controller.OnLogic();
         }
-
     }
 }

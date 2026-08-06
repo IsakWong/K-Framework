@@ -1,5 +1,6 @@
 ﻿using AYellowpaper.SerializedCollections;
 using MoreMountains.Tools;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using JsonConverter = Newtonsoft.Json.JsonConverter;
 
 public class ObjectPersistentData
 {
@@ -232,5 +234,63 @@ public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersist
             File.Delete(fullPath);
             Debug.Log($"已删除文件：{fullPath}");
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Newtonsoft.Json 重载 — 支持 Dictionary、Vector2Int 等
+    //  使用 KGameCore 已配置的全局 JsonConvert.DefaultSettings
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 用 Newtonsoft.Json 保存数据到文件
+    /// </summary>
+    public void SaveDataNewtonsoft<T>(string fileName, T data)
+    {
+        try
+        {
+            if (!Directory.Exists(GetGameDataPath()))
+                Directory.CreateDirectory(GetGameDataPath());
+
+            var fullPath = Path.Combine(GetGameDataPath(), fileName);
+            var json = JsonConvert.SerializeObject(data);
+            File.WriteAllText(fullPath, json);
+            Debug.Log($"[PersistentDataManager] Newtonsoft 保存: {fullPath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[PersistentDataManager] Newtonsoft 保存失败: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 用 Newtonsoft.Json 从文件加载数据，文件不存在返回 null
+    /// </summary>
+    public T LoadDataNewtonsoft<T>(string fileName) where T : class
+    {
+        try
+        {
+            var fullPath = Path.Combine(GetGameDataPath(), fileName);
+            if (!File.Exists(fullPath))
+            {
+                Debug.Log($"[PersistentDataManager] 文件不存在: {fullPath}");
+                return null;
+            }
+
+            var json = File.ReadAllText(fullPath);
+            return JsonConvert.DeserializeObject<T>(json);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[PersistentDataManager] Newtonsoft 加载失败: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 检查文件是否存在
+    /// </summary>
+    public bool FileExists(string fileName)
+    {
+        return File.Exists(Path.Combine(GetGameDataPath(), fileName));
     }
 }

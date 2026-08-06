@@ -8,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// GameCoreProxy 的自定义编辑器
-/// 扫描所有 IModule 的具体实现类型，显示开关列表
+/// 扫描所有 IService 的场景模块实现类型，显示开关列表
 /// 勾选后自动在 GameCoreProxy 下创建对应的模块 GameObject
 /// </summary>
 [CustomEditor(typeof(GameCoreProxy))]
@@ -37,7 +37,7 @@ public class GameCoreProxyEditor : Editor
 
         if (_moduleTypes == null || _moduleTypes.Count == 0)
         {
-            EditorGUILayout.HelpBox("未找到任何 IModule 实现类型", MessageType.Info);
+            EditorGUILayout.HelpBox("未找到任何 IService 模块实现类型", MessageType.Info);
         }
         else
         {
@@ -141,14 +141,13 @@ public class GameCoreProxyEditor : Editor
     /// </summary>
     private static List<Type> FindAllModuleTypes()
     {
-        var moduleInterface = typeof(IModule);
+        var serviceType = typeof(IService);
         var monoType = typeof(MonoBehaviour);
 
         var types = new List<Type>();
 
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-            // 跳过 Unity/System 内部程序集以提高性能
             var assemblyName = assembly.GetName().Name;
             if (assemblyName.StartsWith("Unity") ||
                 assemblyName.StartsWith("System") ||
@@ -162,12 +161,11 @@ public class GameCoreProxyEditor : Editor
             {
                 foreach (var type in assembly.GetTypes())
                 {
-                    // 必须是具体类（非抽象、非泛型定义）
                     if (type.IsAbstract || type.IsGenericTypeDefinition)
                         continue;
 
-                    // 必须实现 IModule 并且是 MonoBehaviour
-                    if (!moduleInterface.IsAssignableFrom(type))
+                    // 必须实现 IService 并且是 MonoBehaviour
+                    if (!serviceType.IsAssignableFrom(type))
                         continue;
 
                     if (!monoType.IsAssignableFrom(type))
@@ -177,17 +175,32 @@ public class GameCoreProxyEditor : Editor
                     if (type.Name.StartsWith("TModule"))
                         continue;
 
+                    // 仅场景模块（TModule 子类），排除全局 PersistentSingleton
+                    if (!IsTModuleSubclass(type))
+                        continue;
+
                     types.Add(type);
                 }
             }
             catch (ReflectionTypeLoadException)
             {
-                // 忽略无法加载的程序集
             }
         }
 
         types.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
         return types;
+    }
+
+    private static bool IsTModuleSubclass(Type type)
+    {
+        var current = type.BaseType;
+        while (current != null)
+        {
+            if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(TModule<>))
+                return true;
+            current = current.BaseType;
+        }
+        return false;
     }
 
 #if UNITY_2021_2_OR_NEWER

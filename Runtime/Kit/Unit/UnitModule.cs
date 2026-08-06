@@ -32,8 +32,6 @@ public class UnitModule : TModule<UnitModule>
     /// <summary>
     /// 全局时间缩放倍率（影响所有 Unit）
     /// </summary>
-    [Header("时间缩放管理")]
-    [SerializeField, Range(0f, 5f), Tooltip("全局时间缩放倍率")]
     private float _globalTimeScale = 1f;
     
     /// <summary>
@@ -98,7 +96,7 @@ public class UnitModule : TModule<UnitModule>
 
     #region Main Update Loop
 
-    public void FixedUpdate()
+    protected override void OnModuleLogic(float delta)
     {
         UpdateGlobalTimeScale();
         ProcessLifecycleOperations();

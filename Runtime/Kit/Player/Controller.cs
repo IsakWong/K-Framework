@@ -34,7 +34,7 @@ public class ControllerBase : MonoBehaviour
 
     protected void OnDisable()
     {
-        if (!PlayerModule.NullableInstance)
+        if (PlayerModule.NullableInstance == null)
         {
             return;
         }

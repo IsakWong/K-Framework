@@ -60,14 +60,14 @@ public class KGameCore
 
     public static KTimerManager GlobalTimers => Instance.Timers;
 
-    public static T RequireSystem<T>() where T : MonoBehaviour, IModule
+    public static T RequireSystem<T>() where T : class, IModule, new()
         => Instance.RequireModule<T>();
 
-    public static T GetSystem<T>() where T : MonoBehaviour, IModule
+    public static T GetSystem<T>() where T : class, IModule
         => Instance.GetModule<T>();
 
     [Obsolete("Use GetSystem<T>() instead")]
-    public static T SystemAt<T>() where T : MonoBehaviour, IModule
+    public static T SystemAt<T>() where T : class, IModule
         => Instance.GetModule<T>();
 
     // ═══════════════════════════════════════════════════════════════
@@ -77,6 +77,9 @@ public class KGameCore
     private readonly Dictionary<Type, IModule> _modules = new();
 
     public int ModuleCount => _modules.Count;
+
+    /// <summary>共享场景挂点：模块生成物体（如地牢 root）时作为 parent。由 GameCoreProxy 提供。</summary>
+    public GameObject ModuleRoot => proxy != null ? proxy.gameObject : null;
 
     public T GetModule<T>() where T : class, IModule
     {
@@ -91,30 +94,14 @@ public class KGameCore
         return null;
     }
 
-    public T RequireModule<T>(string name = null) where T : MonoBehaviour, IModule
+    /// <summary>获取或创建模块（纯 C# 创建，不依赖场景对象）。</summary>
+    public T RequireModule<T>(string name = null) where T : class, IModule, new()
     {
         if (GetModule<T>() is T existing) return existing;
-        if (name == null) name = typeof(T).Name;
 
-        var count = proxy.gameObject.transform.childCount;
-        for (var i = 0; i < count; i++)
-        {
-            var inst = proxy.gameObject.transform.GetChild(i).GetComponent<T>();
-            if (inst != null)
-            {
-                _modules[typeof(T)] = inst;
-                if (!inst.Initialized) inst.Init();
-                return inst;
-            }
-        }
-
-        var go = new GameObject($"[{name}]");
-        var newInst = go.AddComponent<T>();
-        if (newInst == null) { UnityEngine.Object.Destroy(go); return null; }
-        if (proxy.transform.parent != null)
-            newInst.transform.SetParent(proxy.transform.parent);
-
+        var newInst = new T();
         _modules[typeof(T)] = newInst;
+        MarkModulesDirty();
         if (!newInst.Initialized) newInst.Init();
         return newInst;
     }
@@ -129,8 +116,17 @@ public class KGameCore
             _modules[key].Dispose();
         }
         _modules[key] = module;
+        MarkModulesDirty();
         if (!module.Initialized) module.Init();
         return module;
+    }
+
+    /// <summary>移除模块（不调用 Dispose，由调用方决定）。</summary>
+    public void RemoveModule(IModule module)
+    {
+        if (module == null) return;
+        if (_modules.Remove(module.GetType()))
+            MarkModulesDirty();
     }
 
     internal void GetAllModules(Queue<IModule> outQueue)
@@ -138,7 +134,30 @@ public class KGameCore
         foreach (var m in _modules.Values) outQueue.Enqueue(m);
     }
 
-    internal void ClearModules() => _modules.Clear();
+    internal void ClearModules()
+    {
+        _modules.Clear();
+        MarkModulesDirty();
+    }
+
+    // ─── Tick 顺序（按 IModule.Order 排序，缓存避免每帧排序） ───
+
+    private readonly List<IModule> _orderedModules = new();
+    private bool _modulesDirty = true;
+
+    private void MarkModulesDirty() => _modulesDirty = true;
+
+    private List<IModule> GetOrderedModules()
+    {
+        if (_modulesDirty)
+        {
+            _orderedModules.Clear();
+            _orderedModules.AddRange(_modules.Values);
+            _orderedModules.Sort((a, b) => a.Order.CompareTo(b.Order));
+            _modulesDirty = false;
+        }
+        return _orderedModules;
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  Legacy
@@ -269,7 +288,7 @@ public class KGameCore
     {
         KTime.scaleDeltaTime = Time.fixedDeltaTime;
         Timers.OnLogic(KTime.scaleDeltaTime);
-        foreach (var m in _modules.Values)
+        foreach (var m in GetOrderedModules())
             m.OnLogic(Time.fixedDeltaTime);
     }
 
@@ -302,6 +321,6 @@ public class KGameCore
     }
 
     [Obsolete("Use KGameCore.GetSystem<T>() or GetModule<T>() instead")]
-    public T GetSystemInstance<T>() where T : MonoBehaviour, IModule
+    public T GetSystemInstance<T>() where T : class, IModule
         => GetModule<T>();
 }

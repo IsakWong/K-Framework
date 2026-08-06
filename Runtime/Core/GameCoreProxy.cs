@@ -49,7 +49,7 @@ public class GameCoreProxy : MonoBehaviour
 
     public IEnumerator ShutdownModules()
     {
-        EnhancedLog.Log("Shutting down...");
+        EnhancedLog.Log("Shutting down non-persistent modules...");
         if (shutdown)
         {
             yield return null;
@@ -62,17 +62,23 @@ public class GameCoreProxy : MonoBehaviour
         while (modules.Count > 0)
         {
             var first = modules.Peek();
+            // 持久化模块跨场景存活，不随场景切换销毁
+            if (first.Persistent)
+            {
+                modules.Dequeue();
+                continue;
+            }
+
             if (first.RequestShutdown())
             {
                 first.Dispose();
-                Destroy(first.GetGameObjectProxy());
+                KGameCore.Instance.RemoveModule(first);
                 modules.Dequeue();
             }
 
             yield return new WaitForFixedUpdate();
         }
 
-        KGameCore.Instance.ClearModules();
         yield return null;
     }
 
