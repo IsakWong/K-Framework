@@ -1,0 +1,408 @@
+using System;
+using Cysharp.Threading.Tasks;
+using MoreMountains.Feedbacks;
+using Sirenix.OdinInspector;
+using UnityEngine;
+using UnityEngine.UI;
+
+public enum UIPanelKind
+{
+    [LabelText("全屏独占")]
+    Fullscreen,
+    [LabelText("叠加层")]
+    Overlay,
+}
+
+/// <summary>
+/// UI 面板基类。
+///
+/// 对外只暴露字段、属性、生命周期信号与可重写回调；所有"打开/关闭/置前"操作必须走 <see cref="UIManager"/>。
+/// 实际的生命周期方法（OpenAsyncInternal / CloseAsyncInternal / SuspendAsyncInternal / ResumeAsyncInternal）
+/// 标记为 <c>internal</c>，仅 UIManager 调用，避免业务侧绕过容器导致状态不一致。
+/// </summary>
+public class UIPanel : MonoBehaviour
+{
+    // ════════════════════════════════════════════════
+    // Inspector 字段
+    // ════════════════════════════════════════════════
+
+    [LabelText("面板类型")]
+    [Tooltip("Fullscreen=栈式独占，压栈时隐藏上一张Fullscreen；Overlay=与Fullscreen共存，多层可并列")]
+    public UIPanelKind Kind = UIPanelKind.Fullscreen;
+
+    [LabelText("父级面板")]
+    [Tooltip("可选归属Panel，父Panel关闭时子Panel会被级联关闭")]
+    public UIPanel ParentPanel;
+
+    [LabelText("挂起时保留状态")]
+    [Tooltip("仅 Fullscreen 生效。开启后被压栈时走 Suspend（仅 SetActive(false)，保留订阅与 BGM）；关闭走 Close（断订阅、Pop BGM）。")]
+    public bool KeepAliveOnSuspend = false;
+
+    [LabelText("启动时打开")]
+    public bool OpenOnStart = false;
+
+    [LabelText("可见")]
+    public bool Visible = false;
+
+    [LabelText("可交互")]
+    public bool Interactable = true;
+
+    [LabelText("静音游戏声音")]
+    public bool MuteGameplay = false;
+
+    [LabelText("打开音效")]
+    public AudioClip OpenAudio;
+
+    [LabelText("关闭音效")]
+    public AudioClip CloseAudio;
+
+    [LabelText("背景音乐")]
+    public AudioClip BGM;
+
+    [LabelText("背景模糊")]
+    [Tooltip("打开面板时模糊背景画面（需场景中存在 UIBlurBackgroundController）")]
+    public bool EnableBackgroundBlur = false;
+
+    [LabelText("压制世界对话框")]
+    [Tooltip("打开面板时隐藏并抑制 3D 世界对话框（如 JasaDialogController），关闭后自动恢复")]
+    public bool SuppressWorldDialogs = false;
+
+    [LabelText("面板动画")]
+    [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
+    [SerializeReference]
+    public UIAnimation PanelAnimation;
+
+    /// <summary>
+    /// 是否为 Companion 模式（作为另一个面板的附属面板打开）。
+    /// Companion 面板不响应全局快捷键，随 host 面板一起播放开关动画。
+    /// </summary>
+    [NonSerialized]
+    public bool IsCompanion = false;
+
+    // ════════════════════════════════════════════════
+    // 生命周期信号
+    // ════════════════════════════════════════════════
+
+    [LabelText("面板开始打开信号")]
+    public KSignal OnPanelBeginOpen = new();
+
+    [LabelText("面板打开完成信号")]
+    public KSignal OnPanelOpen = new();
+
+    [LabelText("面板开始关闭信号")]
+    public KSignal OnPanelBeginClose = new();
+
+    [LabelText("面板关闭完成信号")]
+    public KSignal OnPanelClose = new();
+
+    [LabelText("面板开始挂起信号")]
+    public KSignal OnPanelBeginSuspend = new();
+
+    [LabelText("面板挂起完成信号")]
+    public KSignal OnPanelSuspend = new();
+
+    [LabelText("面板开始恢复信号")]
+    public KSignal OnPanelBeginResume = new();
+
+    [LabelText("面板恢复完成信号")]
+    public KSignal OnPanelResume = new();
+
+    // ════════════════════════════════════════════════
+    // 内部状态
+    // ════════════════════════════════════════════════
+
+    /// <summary>OpenFx/CloseFx 自动包装缓存</summary>
+    private UIAnimationMMF _mmfAnimation;
+
+    protected Subscriber subscriber = new();
+
+    // ════════════════════════════════════════════════
+    // 静态回调
+    // ════════════════════════════════════════════════
+
+    /// <summary>
+    /// 面板请求/释放背景模糊。由 <see cref="UIBlurBackgroundController"/> 订阅。
+    /// 参数: (UIPanel, bool enable)
+    /// </summary>
+    public static System.Action<UIPanel, bool> OnBackgroundBlurRequested;
+
+    /// <summary>
+    /// 面板请求/释放对 3D 世界对话框的压制。由 JASA 的 JasaDialogController 订阅。
+    /// 参数: (UIPanel, bool enable) —— enable=true 表示开始压制，false 表示解除。
+    /// </summary>
+    public static System.Action<UIPanel, bool> OnWorldDialogsSuppressRequested;
+
+    // ════════════════════════════════════════════════
+    // 公开虚方法（业务可重写但不应直接调用）
+    // ════════════════════════════════════════════════
+
+    /// <summary>
+    /// 全局按键透传给当前栈顶 Panel（由 UIManager 派发，当前未启用调度器）。
+    /// </summary>
+    public virtual void OnGlobalButtonPress(KeyCode code)
+    {
+    }
+
+    // ════════════════════════════════════════════════
+    // Unity 生命周期
+    // ════════════════════════════════════════════════
+
+    protected void Awake()
+    {
+        UIManager.Instance.AddUI(this);
+    }
+
+    public void Start()
+    {
+        if (OpenOnStart)
+        {
+            UIManager.Instance.PushAsync(this).Forget();
+        }
+    }
+
+    // ════════════════════════════════════════════════
+    // 内部生命周期方法（仅 UIManager 调用）
+    // ════════════════════════════════════════════════
+
+    /// <summary>
+    /// 打开：完整生命周期，触发 OnOpen，播 OpenAudio、BGM 等。
+    /// </summary>
+    internal async UniTask OpenAsyncInternal()
+    {
+        EnhancedLog.Log($"[UIManager]{name} OpenAsyncInternal");
+        Visible = true;
+        if (OpenAudio) SoundManager.Instance.PlaySound(OpenAudio);
+
+        var anim = GetEffectiveAnimation();
+        CanvasGroup cg = null;
+        if (anim != null)
+        {
+            cg = GetOrAddCanvasGroup();
+            cg.blocksRaycasts = false;
+        }
+
+        gameObject.SetActive(true);
+
+        OnBeforeOpen();
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, true);
+
+        if (SuppressWorldDialogs)
+            OnWorldDialogsSuppressRequested?.Invoke(this, true);
+
+        OnPanelBeginOpen?.Invoke();
+
+        if (anim != null)
+        {
+            anim.OnOpenStart?.Invoke(this);
+            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
+            await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
+            anim.OnOpenEnd?.Invoke(this);
+
+            cg.blocksRaycasts = true;
+        }
+
+        Interactable = true;
+        OnOpen();
+    }
+
+    /// <summary>
+    /// 关闭：完整生命周期，触发 OnClose，断订阅、Pop BGM。
+    /// </summary>
+    internal async UniTask CloseAsyncInternal()
+    {
+        BeginCloseSequence();
+        await PlayCloseAnimationAsync();
+        FinishClose();
+    }
+
+    /// <summary>
+    /// 关闭流程前半段：OnBeforeClose + 停交互 + 发 OnPanelBeginClose 信号。
+    /// 由 UIManager 在并行关闭场景下调用，多个面板的 BeginCloseSequence 完成后，
+    /// 再统一通过 WhenAll 播放关闭动画。
+    /// </summary>
+    internal void BeginCloseSequence()
+    {
+        OnBeforeClose();
+        PrepareForClose();
+        OnPanelBeginClose?.Invoke();
+    }
+
+    /// <summary>
+    /// 关闭流程后半段：OnClose（断订阅、SetActive(false)、Pop BGM）。
+    /// 所有动画并行播完后调用。
+    /// </summary>
+    internal void FinishClose()
+    {
+        OnClose();
+    }
+
+    /// <summary>
+    /// 准备关闭（停止交互、设 Visible、处理背景模糊、播音效）。
+    /// 由 UIManager 在并行关闭场景下统一调用，然后再并行播放动画。
+    /// </summary>
+    private void PrepareForClose()
+    {
+        Visible = false;
+        Interactable = false;
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, false);
+
+        if (SuppressWorldDialogs)
+            OnWorldDialogsSuppressRequested?.Invoke(this, false);
+
+        if (CloseAudio) SoundManager.Instance.PlaySound(CloseAudio);
+    }
+
+    /// <summary>
+    /// 仅播放关闭动画（无信号、无 OnClose）。
+    /// 由 UIManager 在并行关闭场景下调用，所有 panel 的动画通过 WhenAll 并行播放。
+    /// </summary>
+    internal async UniTask PlayCloseAnimationAsync()
+    {
+        var anim = GetEffectiveAnimation();
+        if (anim == null) return;
+
+        var cg = GetOrAddCanvasGroup();
+        cg.blocksRaycasts = false;
+
+        anim.OnCloseStart?.Invoke(this);
+        await anim.PlayCloseAsync(cg, this.GetCancellationTokenOnDestroy());
+        anim.OnCloseEnd?.Invoke(this);
+    }
+
+    /// <summary>
+    /// 挂起：保留订阅与 BGM，仅淡出并 SetActive(false)。
+    /// 仅当 <see cref="KeepAliveOnSuspend"/> 为 true 时由 UIManager 调用。
+    /// </summary>
+    internal async UniTask SuspendAsyncInternal()
+    {
+        Visible = false;
+        Interactable = false;
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, false);
+
+        if (SuppressWorldDialogs)
+            OnWorldDialogsSuppressRequested?.Invoke(this, false);
+
+        OnPanelBeginSuspend?.Invoke();
+
+        var anim = GetEffectiveAnimation();
+        if (anim != null)
+        {
+            var cg = GetOrAddCanvasGroup();
+            cg.blocksRaycasts = false;
+
+            anim.OnCloseStart?.Invoke(this);
+            await anim.PlayCloseAsync(cg, this.GetCancellationTokenOnDestroy());
+            anim.OnCloseEnd?.Invoke(this);
+        }
+
+        // 不动 subscriber、不动 BGM；仅停止 Update/协程
+        gameObject.SetActive(false);
+
+        OnSuspend();
+        OnPanelSuspend?.Invoke();
+    }
+
+    /// <summary>
+    /// 恢复：从挂起状态回到栈顶。
+    /// </summary>
+    internal async UniTask ResumeAsyncInternal()
+    {
+        EnhancedLog.Log($"[UIManager] {name} ResumeAsyncInternal");
+        Visible = true;
+
+        var anim = GetEffectiveAnimation();
+        CanvasGroup cg = null;
+        if (anim != null)
+        {
+            cg = GetOrAddCanvasGroup();
+            cg.blocksRaycasts = false;
+        }
+
+        gameObject.SetActive(true);
+
+        if (EnableBackgroundBlur)
+            OnBackgroundBlurRequested?.Invoke(this, true);
+
+        if (SuppressWorldDialogs)
+            OnWorldDialogsSuppressRequested?.Invoke(this, true);
+
+        OnPanelBeginResume?.Invoke();
+
+        if (anim != null)
+        {
+            anim.OnOpenStart?.Invoke(this);
+            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
+            await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
+            anim.OnOpenEnd?.Invoke(this);
+
+            cg.blocksRaycasts = true;
+        }
+
+        Interactable = true;
+        OnResume();
+        OnPanelResume?.Invoke();
+    }
+
+    // ════════════════════════════════════════════════
+    // 生命周期回调（业务重写）
+    // ════════════════════════════════════════════════
+
+    /// <summary>面板激活后、动画播放前调用。默认空实现。子类可在此绑定数据，确保动画播前 UI 已就绪。</summary>
+    protected virtual void OnBeforeOpen() { }
+
+    /// <summary>面板关闭前、动画播放前调用。默认空实现。子类可在此清理资源。</summary>
+    protected virtual void OnBeforeClose() { }
+
+    /// <summary>面板完整打开后调用（动画播完）。默认行为：触发 OnPanelOpen 信号、播 BGM。</summary>
+    protected virtual void OnOpen()
+    {
+        OnPanelOpen?.Invoke();
+        if (BGM)
+            SoundManager.Instance.PlayMusic(BGM);
+    }
+
+    /// <summary>面板完整关闭后调用（动画播完）。默认行为：触发 OnPanelClose、断订阅、SetActive(false)、Pop BGM。</summary>
+    protected virtual void OnClose()
+    {
+        IsCompanion = false;
+        OnPanelClose?.Invoke();
+        subscriber.DisconnectAll();
+        gameObject.SetActive(false);
+        if (BGM)
+            SoundManager.Instance.PopTrack();
+    }
+
+    /// <summary>挂起完成后调用。默认空实现 —— 不断订阅、不动 BGM。</summary>
+    protected virtual void OnSuspend()
+    {
+    }
+
+    /// <summary>从挂起状态恢复完成后调用。默认空实现。</summary>
+    protected virtual void OnResume()
+    {
+    }
+
+    // ════════════════════════════════════════════════
+    // 工具
+    // ════════════════════════════════════════════════
+
+    protected virtual UIAnimation GetEffectiveAnimation()
+    {
+        if (PanelAnimation != null) return PanelAnimation;
+        if (UIManager.Instance?.PanelAnimation != null) return UIManager.Instance.PanelAnimation;
+        return null;
+    }
+
+    private CanvasGroup GetOrAddCanvasGroup()
+    {
+        var cg = GetComponent<CanvasGroup>();
+        if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+        return cg;
+    }
+}

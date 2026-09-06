@@ -36,7 +36,7 @@
 
 | # | 问题 | 严重度 | 现状 | 建议 |
 |---|---|---|---|---|
-| 1 | **缺少命名空间** | 🟡中 | 大量类在全局命名空间 | 统一 `KFramework.*` 命名空间 |
+| 1 | **缺少命名空间** | 🟡中 | 大量类在全局命名空间 | 统一 `KFramework.*` 命名空间（物理目录已按 Core/Core.Unity 分桶，见 CLAUDE.md「项目结构」；本轮只收编 namespace，JASA 侧需补 using） |
 | 2 | **GameMode 耦合业务** | 🟡中 | `OnPlayerDeath/OnPlayerRespawn` 等业务回调在框架层 | 改为泛型事件或移到扩展层 |
 | 3 | **UnitModule 封装不足** | 🟡中 | `_toSpawnUnits` 等内部队列为 public | 改为 internal 或只暴露方法 |
 | 4 | **线程安全** | 🟢低 | 所有 Manager 无线程保护 | 加锁或标注 `[MainThread]` 限制 |

@@ -27,6 +27,15 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+### 物理目录（2026-09：按引擎依赖分桶）
+
+上图的语义分层不变，但 `Runtime/` 物理目录已按「是否依赖 UnityEngine」重构为两桶（详见 `CLAUDE.md` 项目结构）：
+
+- `Runtime/Core/` —— **引擎无关层**（纯 C#：自研协程核心、`CSharpPool<T>`、`IEvent`、`IService`/`ILogService`），不引用任何引擎代码。
+- `Runtime/Core.Unity/` —— **引擎绑定层**（`GameCore/`、`Foundation/`、`Action/`、`Kit/` 等所有依赖引擎的自有代码）+ `ThirdParty/`（依赖引擎的内嵌三方：UnityHFSM、Fluid BT、JsonConverter、SerializedCollections、DOTween Modules，各自 namespace / asmdef 不变）。
+
+**过渡态说明**：目录已按引擎依赖分桶，但命名空间尚未收敛（大量文件仍为全局或 `Framework.*`）。这是「物理分桶先行、命名空间收敛后置」的过渡，统一到 `KFramework.*` 见 TODO。
+
 ## 核心设计模式
 
 | 模式 | 实现 | 用途 |

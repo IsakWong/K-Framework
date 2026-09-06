@@ -81,23 +81,33 @@ None → Spawning → Alive → Dying → Dead → Deleting → Deleted
 | Odin Inspector | 编辑器增强（可选） |
 | MoreMountains Feel | 反馈系统（可选） |
 
-## 项目结构
+## 项目结构（物理目录已按引擎依赖分桶，2026-09 起）
 
 ```
-Runtime/          KFramework.asmdef（运行时代码）
-  Foundation/     基础层
-  Core/           核心层（GameCore, GameMode, TModule, Signal, FSM, BT, Command, Action）
-  Subscriber/     KSignal / Subscriber
-  EventBus/       全局事件总线
-  Coroutine/      自定义协程
-  UI/             UI 栈管理
-  Sound/          音频系统
-  Assets/         Addressables 封装
-  ObjectPool/     GameObjectPool / PoolManager / CSharpPool
-  FrameworkExt/   Unit / Player / Vfx / HUD / Camera
-  ...
-Editor/          编辑器扩展
-Tests/           测试
+Runtime/          KFramework.asmdef（运行时主程序集；包含下述 Core 与 Core.Unity 全部代码）
+  Core/                       引擎无关层（纯 C#，不含任何 UnityEngine / 引擎三方依赖）
+    Coroutine/                自研协程核心（KCoroutine / CoroutineHandler / CoroutineManager / Wait）
+    EventBus/                 IEvent（事件契约标记）
+    Foundation/               IService / ILogService（纯接口）
+    ObjectPool/               CSharpPool<T>（纯 C# 对象池）
+  Core.Unity/                 引擎绑定层（依赖 UnityEngine 的 KFramework 自有代码）
+    GameCore/                 原内核语义：KGameCore / GameMode / GameCoreProxy / TModule / ModuleLocator
+    Foundation/               KSingleton / PersistentSingleton / ServiceLocator / EnhancedLog / Variant 等引擎件
+    Action/ Attributes/ EventBus/ Subscriber/ ObjectPool/ Coroutine/ Cmd/     按系统原目录
+    Kit/                      功能模块聚合（UI / Sound / Asset / Camera / HUD / Unit / Player / Scene / Config / Debug / PersistentData / Settings / Vfx）
+    Utils/ Version/ Extensions/
+    ThirdParty/               依赖引擎的内嵌三方（各自 namespace / asmdef 不变）
+      Fsm/                    UnityHFSM（Inspiaaa，namespace FSM）
+      FluidBehaviorTree/      CleverCrow Fluid BT（namespace CleverCrow.Fluid.BTs）
+      JsonConverter/          Newtonsoft.Json.UnityConverters（+ 自有 AssetReferenceConverter）
+      SerializedCollections/  AYellowpaper（Runtime + Editor 两 asmdef）
+      Plugins/                DOTween Modules（DG.Tweening）
+Editor/          编辑器扩展（KFramework.Editor asmdef；含 DisplayNameDrawer 等）
+Tests/           测试（KFramework.Tests）
+Plugins/         UPM 包根预编译插件（DOTween.dll）
 ```
+
+> 分层语义不变：`Foundation → Core → Module → FrameworkExt`（见上方「架构分层」）。
+> 目录与 namespace 的对应目前**不一致**（大量文件仍为全局 namespace / `Framework.*`）——这是「物理分桶先行、命名空间收敛后置」的过渡态；收敛到 `KFramework.*` 见 TODO。
 
 详见 `README.md` 获取完整模块清单、服务接口速查表、架构评价。

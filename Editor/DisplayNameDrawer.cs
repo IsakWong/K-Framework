@@ -4,7 +4,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace JASA
+namespace KFramework.Editor
 {
     /// <summary>
     /// DisplayNameDrawer

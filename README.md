@@ -58,17 +58,11 @@ KFramework/
 ├── LICENSE                   # MIT 许可证
 ├── CHANGELOG.md              # 版本变更日志
 ├── README.md
-├── Runtime/                  # 运行时代码
-│   ├── KFramework.asmdef
-│   ├── Foundation/           # 基础层 (Singleton, ServiceLocator, Log)
-│   ├── Core/                 # 核心层 (KGameCore, GameMode, TModule)
-│   ├── Sound/                # 音频系统 (SoundManager, SoundCategory)
-│   ├── UI/                   # UI 管理
-│   ├── ObjectPool/           # 对象池
-│   ├── EventBus/             # 事件总线
-│   ├── Fsm/                  # 状态机
-│   ├── BehaviorTree/         # 行为树
-│   └── ...                   # 更多模块
+├── Runtime/                  # 运行时代码 (KFramework.asmdef)，物理目录按引擎依赖分桶
+│   ├── Core/                 #   引擎无关层（纯 C#）：协程核心、CSharpPool、IEvent、IService/ILogService
+│   ├── Core.Unity/           #   引擎绑定层：GameCore / Foundation / Action / Kit / ... 全部依赖引擎代码
+│   │   └── ThirdParty/       #     依赖引擎的内嵌三方（UnityHFSM、Fluid BT、JsonConverter、SerializedCollections、DOTween Modules）
+│   └── KFramework.asmdef     # 完整结构见 CLAUDE.md「项目结构」
 ├── Editor/                   # 编辑器扩展
 │   └── KFramework.Editor.asmdef
 ├── Tests/                    # 测试
@@ -261,31 +255,23 @@ KFramework/                      # UPM 包根目录
 ├── CHANGELOG.md                 # 版本变更日志
 ├── README.md
 ├── Runtime/                     # 运行时代码 (KFramework.asmdef)
-│   ├── Foundation/              #   基础层：单例、ServiceLocator、日志、定时器
-│   ├── Core/                    #   核心层：KGameCore、GameMode、TModule
-│   ├── Subscriber/              #   信号系统：KSignal、Subscriber
-│   ├── EventBus/                #   事件总线：全局类型路由
-│   ├── Coroutine/               #   自定义协程系统
-│   ├── Fsm/                     #   有限状态机
-│   ├── BehaviorTree/            #   行为树 (Fluid BT)
-│   ├── Cmd/                     #   命令队列
-│   ├── Action/                  #   动作序列
-│   ├── Assets/                  #   资源管理 (Addressables + AssetDatabase)
-│   ├── Config/                  #   配置管理 (ScriptableObject)
-│   ├── UI/                      #   UI 栈管理
-│   ├── Sound/                   #   音效/音乐 (SoundManager/SoundCategory/SoundEmitter)
-│   ├── Settings/                #   游戏设置
-│   ├── PersistentData/          #   持久化存档
-│   ├── Scene/                   #   场景管理
-│   ├── Debug/                   #   调试工具
-│   ├── Version/                 #   版本信息
-│   ├── ObjectPool/              #   对象池 (GameObjectPool/PoolManager/CSharpPool)
-│   ├── FrameworkExt/            #   游戏扩展层 (Unit/Player/Vfx/HUD/Camera)
-│   ├── Attributes/              #   特性 (AutoBind/DisplayName)
-│   ├── JsonConverter/           #   JSON 转换器
-│   ├── Audio/                   #   音频配置
-│   ├── SerializedCollections/   #   可序列化字典
-│   └── Utils/                   #   工具组件
+│   ├── Core/                    #   引擎无关层（纯 C#，不引用引擎）
+│   │   ├── Coroutine/           #     自研协程核心（KCoroutine/CoroutineHandler/CoroutineManager/Wait）
+│   │   ├── EventBus/            #     IEvent（事件契约标记）
+│   │   ├── Foundation/          #     IService / ILogService（纯接口）
+│   │   └── ObjectPool/          #     CSharpPool<T>
+│   ├── Core.Unity/              #   引擎绑定层（KFramework 自有、依赖引擎的代码）
+│   │   ├── GameCore/            #     KGameCore、GameMode、GameCoreProxy、TModule、ModuleLocator
+│   │   ├── Foundation/          #     KSingleton/PersistentSingleton/ServiceLocator/EnhancedLog/Variant
+│   │   ├── Action/ Attributes/ EventBus/ Subscriber/ ObjectPool/ Coroutine/ Cmd/
+│   │   ├── Kit/                 #     UI/Sound/Asset/Camera/HUD/Unit/Player/Scene/Config/Debug/PersistentData/Settings/Vfx
+│   │   ├── Utils/ Version/ Extensions/
+│   │   └── ThirdParty/          #   依赖引擎的内嵌三方（namespace/asmdef 不变）
+│   │       ├── Fsm/             #     UnityHFSM
+│   │       ├── FluidBehaviorTree/#     Fluid BT
+│   │       ├── JsonConverter/   #     Newtonsoft UnityConverters
+│   │       ├── SerializedCollections/
+│   │       └── Plugins/         #     DOTween Modules
 ├── Editor/                      # 编辑器扩展 (KFramework.Editor.asmdef)
 ├── Tests/                       # 测试 (KFramework.Tests.asmdef)
 │   └── Runtime/
