@@ -63,10 +63,6 @@ public class UIPanel : MonoBehaviour
     [Tooltip("打开面板时模糊背景画面（需场景中存在 UIBlurBackgroundController）")]
     public bool EnableBackgroundBlur = false;
 
-    [LabelText("压制世界对话框")]
-    [Tooltip("打开面板时隐藏并抑制 3D 世界对话框（如 JasaDialogController），关闭后自动恢复")]
-    public bool SuppressWorldDialogs = false;
-
     [LabelText("面板动画")]
     [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
     [SerializeReference]
@@ -126,12 +122,6 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     public static System.Action<UIPanel, bool> OnBackgroundBlurRequested;
 
-    /// <summary>
-    /// 面板请求/释放对 3D 世界对话框的压制。由 JASA 的 JasaDialogController 订阅。
-    /// 参数: (UIPanel, bool enable) —— enable=true 表示开始压制，false 表示解除。
-    /// </summary>
-    public static System.Action<UIPanel, bool> OnWorldDialogsSuppressRequested;
-
     // ════════════════════════════════════════════════
     // 公开虚方法（业务可重写但不应直接调用）
     // ════════════════════════════════════════════════
@@ -187,9 +177,6 @@ public class UIPanel : MonoBehaviour
 
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, true);
-
-        if (SuppressWorldDialogs)
-            OnWorldDialogsSuppressRequested?.Invoke(this, true);
 
         OnPanelBeginOpen?.Invoke();
 
@@ -250,9 +237,6 @@ public class UIPanel : MonoBehaviour
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, false);
 
-        if (SuppressWorldDialogs)
-            OnWorldDialogsSuppressRequested?.Invoke(this, false);
-
         if (CloseAudio) SoundManager.Instance.PlaySound(CloseAudio);
     }
 
@@ -284,9 +268,6 @@ public class UIPanel : MonoBehaviour
 
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, false);
-
-        if (SuppressWorldDialogs)
-            OnWorldDialogsSuppressRequested?.Invoke(this, false);
 
         OnPanelBeginSuspend?.Invoke();
 
@@ -328,9 +309,6 @@ public class UIPanel : MonoBehaviour
 
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, true);
-
-        if (SuppressWorldDialogs)
-            OnWorldDialogsSuppressRequested?.Invoke(this, true);
 
         OnPanelBeginResume?.Invoke();
 
