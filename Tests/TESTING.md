@@ -72,13 +72,6 @@ public class XxxTests
 | **CoroutineHandler** | `KCoroutineTests.cs` | StartCoroutine/Clear/StopAllCoroutines/GetActiveCoroutines、自动移除已完成协程 | EditMode |
 | **CoroutineManager** | `KCoroutineTests.cs` | 默认TickTiming、多Timing独立运行、Clear 全量清理 | EditMode |
 
-### Action 层
-
-| 系统 | 文件 | 覆盖内容 | 类型 |
-|------|------|----------|------|
-| **Flow** | `FlowTests.cs` | 顺序执行、Wait 精度、If/Then/Else 路由、Repeat(N)、While 循环、ParallelAll/ParallelAny 并行、WaitFor(KSignal)、WaitForEvent\<T\>、Cancel 取消、异常处理（IsFailed/Error）、SubFlow 嵌套、FlowContext 传值 | PlayMode |
-| **KTrigger** | `TriggerTests.cs` | Once 自动 Unregister、Repeating 多次触发、Condition 过滤、KSignal 源、EventBus 源、EventBus filter、Manual Fire、Action as SubFlow 异步完成 | PlayMode |
-
 ---
 
 ## 尚未覆盖的系统

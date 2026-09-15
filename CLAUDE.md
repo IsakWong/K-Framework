@@ -61,14 +61,6 @@ None → Spawning → Alive → Dying → Dead → Deleting → Deleted
 - `SoundData`：AudioSource 参数模板
 - API：`PlaySound(clip, category)`、`PlayMusic(clip)`、`SetMixerVolume(param, vol)`、`TransitionToSnapshot(snap)`、`DuckBGM(duration)`
 
-### Action 系统（Flow + KTrigger）
-
-- **Flow**：链式编排（顺序/分支/循环/并行/等信号），`Flow.Create().Do(...).Wait(0.5f).Build().Run(this)`
-- **KTrigger**：事件-条件-动作模式，`KTrigger.Once().On<T>().When(pred).Do(action).BuildAndRegister()`
-- 并行分支共享 `FlowContext`，写同一 key 是竞态
-- Trigger 执行期间忽略新事件（不排队）
-- `Flow.Run(this)` 的 `this` 必须是激活的 MonoBehaviour
-
 ## 依赖
 
 | 依赖 | 用途 |
