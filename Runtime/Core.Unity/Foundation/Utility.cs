@@ -260,7 +260,7 @@ public static class Utility
     }
     public static Vector3 DirectionBetweenUnit(this UnityUnit a, UnityUnit b, bool ignoreY = false)
     {
-        var delta = b.transform.position - a.transform.position;
+        var delta = b.WorldPosition - a.WorldPosition;
         if (ignoreY)
         {
             delta.y = 0;
@@ -283,7 +283,7 @@ public static class Utility
 
     public static float DistanceBetweenGameUnit(this UnityUnit a, UnityUnit b, bool ignoreY = true)
     {
-        var delta = a.transform.position - b.transform.position;
+        var delta = a.WorldPosition - b.WorldPosition;
         if (ignoreY)
         {
             delta.y = 0;
