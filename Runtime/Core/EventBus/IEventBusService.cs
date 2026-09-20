@@ -15,6 +15,10 @@ public interface IEventBusService
     // ─── 退订 ───
 
     void Unsubscribe<T>(Action<T> handler) where T : struct, IEvent;
+
+    /// <summary>按 Type + Delegate 退订，供 Subscriber 批量清理使用</summary>
+    void Unsubscribe(Type eventType, Delegate handler);
+
     void UnsubscribeAll<T>() where T : struct, IEvent;
     void Clear();
 

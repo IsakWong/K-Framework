@@ -24,7 +24,7 @@ public class Subscriber : IDisposable
     /// <summary>
     /// EventBus 订阅记录，用于 DisconnectAll 时自动退订
     /// </summary>
-    private readonly List<(EventBus Bus, Type EventType, Delegate Handler)> _eventBusBindings = new();
+    private readonly List<(IEventBusService Bus, Type EventType, Delegate Handler)> _eventBusBindings = new();
 
     /// <summary>
     /// 订阅一个信号并存储订阅关系
@@ -55,9 +55,9 @@ public class Subscriber : IDisposable
     }
 
     /// <summary>
-    /// 记录 EventBus 订阅（由 EventBus.Subscribe 内部调用）
+    /// 记录 EventBus 订阅（由 IEventBusService.Subscribe 内部调用）
     /// </summary>
-    internal void TrackEventBus(EventBus bus, Type eventType, Delegate handler)
+    internal void TrackEventBus(IEventBusService bus, Type eventType, Delegate handler)
     {
         _eventBusBindings.Add((bus, eventType, handler));
     }

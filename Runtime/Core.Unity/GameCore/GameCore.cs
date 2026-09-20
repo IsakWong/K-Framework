@@ -203,9 +203,6 @@ public class KGameCore
     [Obsolete("Override OnInit() instead.")]
     protected virtual void OnRegisterServices() { }
 
-    /// <summary>是否正处于批量注册阶段（OnInit 执行期间）。KSingleton 据此延迟 Init。</summary>
-    internal bool _batchRegistering;
-
     private void Initialize()
     {
         if (proxy == null)
@@ -224,9 +221,9 @@ public class KGameCore
         DOTween.Init();
 
         // Phase 1: 业务注册服务（只注册，不 Init）
-        _batchRegistering = true;
+        ServiceLocator.IsBatchRegistering = true;
         OnInit();
-        _batchRegistering = false;
+        ServiceLocator.IsBatchRegistering = false;
 
         // Phase 2: 统一批量 Init（服务间引用不会拿空）
         ServiceLocator.InitAllServices();

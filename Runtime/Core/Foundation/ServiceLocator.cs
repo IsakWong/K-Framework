@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using KFramework;
-using UnityEngine;
 
 /// <summary>
 /// 服务定位器 — 框架级服务注册与发现中心
@@ -45,12 +44,7 @@ public static class ServiceLocator
             throw new ArgumentNullException(nameof(service));
 
         var type = typeof(T);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (_services.ContainsKey(type))
-        {
-            Debug.LogWarning($"[ServiceLocator] 覆盖已注册服务: {type.Name}");
-        }
-#endif
+        WarnIfOverriding(type);
         _services[type] = service;
     }
 
@@ -63,13 +57,18 @@ public static class ServiceLocator
         if (service == null)
             throw new ArgumentNullException(nameof(service));
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (_services.ContainsKey(serviceType))
-        {
-            Debug.LogWarning($"[ServiceLocator] 覆盖已注册服务: {serviceType.Name}");
-        }
-#endif
+        WarnIfOverriding(serviceType);
         _services[serviceType] = service;
+    }
+
+    /// <summary>
+    /// 覆盖注册时给出提示。经 ILogService 输出而非直接引用具体日志实现，
+    /// 日志服务尚未注册时静默跳过。
+    /// </summary>
+    private static void WarnIfOverriding(Type type)
+    {
+        if (!_services.ContainsKey(type)) return;
+        GetOrDefault<ILogService>()?.Warning("ServiceLocator", $"覆盖已注册服务: {type.Name}");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -163,6 +162,14 @@ public static class ServiceLocator
     // ═══════════════════════════════════════════════════════════════
     //  生命周期批量管理（由 KGameCore 驱动）
     // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 批量注册阶段标记：为 true 时新创建的服务延迟 Init，
+    /// 待全部注册完成后由 InitAllServices() 统一初始化，
+    /// 避免服务之间互相引用时拿到未初始化的实例。
+    /// 由 KGameCore.Initialize() 在 OnInit() 前后设置。
+    /// </summary>
+    public static bool IsBatchRegistering { get; set; }
 
     /// <summary>
     /// 统一初始化所有已注册的 IService（跳过已初始化的）。

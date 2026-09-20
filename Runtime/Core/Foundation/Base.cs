@@ -1,12 +1,10 @@
 using KFramework;
-using UnityEngine;
-
 
 /// <summary>
 /// 纯 C# 单例基类 — 不依赖 MonoBehaviour，实现 IService 接口。
 ///
 /// 生命周期：
-///   首次访问 Instance → new T() → 注册到 ServiceLocator + KGameCore → Init()
+///   首次访问 Instance → new T() → 注册到 ServiceLocator → Init()
 ///
 /// 子类覆写 OnServiceInit() 做初始化，OnServiceDispose() 做清理。
 /// 旧代码 OnServiceRegistered() 仍可用，标记为 Obsolete。
@@ -24,8 +22,7 @@ public class KSingleton<T> : IService where T : KSingleton<T>, new()
                 instance = new T();
                 ServiceLocator.Register(typeof(T), instance);
                 // 批量注册阶段不 Init，由 KGameCore 统一调用 ServiceLocator.InitAllServices()
-                var core = KGameCore._core;
-                if (core == null || !core._batchRegistering)
+                if (!ServiceLocator.IsBatchRegistering)
                     ((IService)instance).Init();
             }
             return instance;
@@ -62,7 +59,7 @@ public class KSingleton<T> : IService where T : KSingleton<T>, new()
 
     protected KSingleton()
     {
-        Debug.Assert(instance == null, "This is a singleton class, should not be created twice!!!");
+        System.Diagnostics.Debug.Assert(instance == null, "This is a singleton class, should not be created twice!!!");
     }
 }
 

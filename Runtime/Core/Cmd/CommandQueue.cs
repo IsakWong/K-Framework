@@ -17,7 +17,7 @@ public class CommandQueue
     {
         if (LogCommand)
         {
-            EnhancedLog.Debug("Command", $"{cmd.ToString()} Pushed");
+            Log($"{cmd.ToString()} Pushed");
         }
 
         cmd.Enqueue(this);
@@ -32,7 +32,7 @@ public class CommandQueue
 
             if (LogCommand)
             {
-                EnhancedLog.Debug("Command", $"{first.Value.ToString()} Execute");
+                Log($"{first.Value.ToString()} Execute");
             }
 
             processingResult = first.Value.Execute();
@@ -40,7 +40,7 @@ public class CommandQueue
             {
                 if (LogCommand)
                 {
-                    EnhancedLog.Debug("Command", $"{first.Value.ToString()} Removed");
+                    Log($"{first.Value.ToString()} Removed");
                 }
 
                 Queue.Remove(first);
@@ -54,5 +54,11 @@ public class CommandQueue
         {
             ProcessOnce();
         }
+    }
+
+    /// <summary>命令日志经 ILogService 输出，日志服务未注册时静默跳过。</summary>
+    private static void Log(string message)
+    {
+        ServiceLocator.GetOrDefault<ILogService>()?.Debug("Command", message);
     }
 }

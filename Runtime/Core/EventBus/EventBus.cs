@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 /// <summary>
 /// 全局事件总线 — 模块间解耦通信的核心设施
@@ -118,9 +117,9 @@ public class EventBus : KSingleton<EventBus>, IEventBusService
     }
 
     /// <summary>
-    /// 退订事件（内部使用，支持 Type + Delegate）
+    /// 退订事件（支持 Type + Delegate，供 Subscriber 批量清理使用）
     /// </summary>
-    internal void Unsubscribe(Type eventType, Delegate handler)
+    public void Unsubscribe(Type eventType, Delegate handler)
     {
         if (!_channels.TryGetValue(eventType, out var channel)) return;
 
@@ -185,7 +184,7 @@ public class EventBus : KSingleton<EventBus>, IEventBusService
             }
             catch (Exception ex)
             {
-                Debug.LogException(ex);
+                LogException(ex);
             }
         }
 
@@ -228,7 +227,7 @@ public class EventBus : KSingleton<EventBus>, IEventBusService
             }
             catch (Exception ex)
             {
-                Debug.LogException(ex);
+                LogException(ex);
             }
         }
     }
@@ -300,5 +299,18 @@ public class EventBus : KSingleton<EventBus>, IEventBusService
         {
             channel.Dirty = true;
         }
+    }
+
+    /// <summary>
+    /// 订阅者回调抛异常时记录日志。优先经 ILogService 输出，
+    /// 日志服务尚未注册时退回 System.Diagnostics，避免异常被静默吞掉。
+    /// </summary>
+    private static void LogException(Exception ex)
+    {
+        var log = ServiceLocator.GetOrDefault<ILogService>();
+        if (log != null)
+            log.Error("EventBus", ex.ToString());
+        else
+            System.Diagnostics.Debug.WriteLine($"[EventBus] {ex}");
     }
 }
