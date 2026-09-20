@@ -46,7 +46,7 @@ public static class VfxAPI
         return effectBase;
     }
 
-    public static Vfx CreateVisualEffectAtUnit(GameObject source, UnitBase target, Vector3 direction,
+    public static Vfx CreateVisualEffectAtUnit(GameObject source, UnityUnit target, Vector3 direction,
         Vector3 offset)
     {
         var effectBase = VfxManager.Instance.Get(source, offset,

@@ -85,7 +85,7 @@ namespace KFramework.Editor
                 .Where(u => u != null)
                 .Where(FilterUnit)
                 .OrderBy(u => u.LifecycleState)
-                .ThenBy(u => u.name);
+                .ThenBy(u => u.Name);
 
             int count = 0;
             foreach (var unit in units)
@@ -142,7 +142,7 @@ namespace KFramework.Editor
             if (unit == null) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.LabelField(unit.name, HeaderStyle);
+            EditorGUILayout.LabelField(unit.Name, HeaderStyle);
             EditorGUILayout.LabelField($"类型: {unit.GetType().Name}", EditorStyles.miniLabel);
             EditorGUILayout.LabelField($"状态: {unit.LifecycleState}", EditorStyles.miniLabel);
             EditorGUILayout.LabelField($"Logic: {(unit.EnableOnLogic ? "✓" : "✗")}  Spawned: {(unit.IsSpawned ? "✓" : "✗")}  Alive: {(unit.IsAlive ? "✓" : "✗")}");
@@ -154,8 +154,12 @@ namespace KFramework.Editor
                 unit.Die();
             if (GUILayout.Button("选中", GUILayout.Height(24)))
             {
-                Selection.activeGameObject = unit.gameObject;
-                EditorGUIUtility.PingObject(unit.gameObject);
+                var host = unit.Host as UnityUnit;
+                if (host != null)
+                {
+                    Selection.activeGameObject = host.gameObject;
+                    EditorGUIUtility.PingObject(host.gameObject);
+                }
             }
             EditorGUILayout.EndHorizontal();
 
@@ -181,7 +185,7 @@ namespace KFramework.Editor
 
                 // 名称 + 类型
                 EditorGUILayout.BeginVertical();
-                EditorGUILayout.LabelField(unit.name, EditorStyles.boldLabel);
+                EditorGUILayout.LabelField(unit.Name, EditorStyles.boldLabel);
                 EditorGUILayout.LabelField(unit.GetType().Name, EditorStyles.miniLabel);
                 EditorGUILayout.EndVertical();
 
@@ -222,7 +226,7 @@ namespace KFramework.Editor
             if (!string.IsNullOrEmpty(_searchFilter))
             {
                 var lower = _searchFilter.ToLower();
-                if (!unit.name.ToLower().Contains(lower) &&
+                if (!unit.Name.ToLower().Contains(lower) &&
                     !unit.GetType().Name.ToLower().Contains(lower))
                     return false;
             }
@@ -249,7 +253,12 @@ namespace KFramework.Editor
             DestroySelectedEditor();
             _selectedUnit = unit;
             if (unit != null)
-                _selectedEditor = UnityEditor.Editor.CreateEditor(unit);
+            {
+                // 内核非 UnityEngine.Object，Inspector 只读镜像落在表现宿主上
+                var host = unit.Host as UnityUnit;
+                if (host != null)
+                    _selectedEditor = UnityEditor.Editor.CreateEditor(host);
+            }
             RepaintWindow();
         }
 

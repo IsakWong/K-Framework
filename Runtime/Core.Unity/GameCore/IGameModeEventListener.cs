@@ -100,7 +100,7 @@ public abstract class IGameModeEventListener : MonoBehaviour
     /// <param name="killer">造成死亡的单位（可能为null）</param>
     public virtual void OnPlayerDeath(UnitBase player, UnitBase killer = null)
     {
-        Debug.Log($"[GameModeComponent] {GetType().Name}: Player died - {player.name}");
+        Debug.Log($"[GameModeComponent] {GetType().Name}: Player died - {player.Name}");
     }
 
     /// <summary>
@@ -109,7 +109,7 @@ public abstract class IGameModeEventListener : MonoBehaviour
     /// <param name="player">重生的玩家角色</param>
     public virtual void OnPlayerRespawn(UnitBase player)
     {
-        Debug.Log($"[GameModeComponent] {GetType().Name}: Player respawned - {player.name}");
+        Debug.Log($"[GameModeComponent] {GetType().Name}: Player respawned - {player.Name}");
     }
 
     /// <summary>

@@ -70,7 +70,7 @@ public class CameraInstance : PersistentSingleton<CameraInstance>, ICameraServic
             foreach (var hit in hits)
             {
                 // 获取碰撞对象的 MeshRenderer
-                var env = hit.collider.GetComponent<UnitBase>();
+                var env = hit.collider.GetComponent<UnityUnit>();
             }
         }
         {

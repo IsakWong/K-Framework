@@ -138,7 +138,7 @@ public class UnitDebugOverlay : MonoBehaviour
             
             _sb.Clear();
             _sb.Append($"  <color=#{colorHex}>��</color> ");
-            _sb.Append($"<b>{unit.name}</b> ");
+            _sb.Append($"<b>{unit.Name}</b> ");
             _sb.Append($"({unit.GetType().Name}) - ");
             _sb.Append($"<color=#{colorHex}>{unit.LifecycleState}</color>");
             

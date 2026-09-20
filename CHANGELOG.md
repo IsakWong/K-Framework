@@ -3,6 +3,27 @@
 本文件记录 KFramework 的所有重要变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/)，
 版本号遵循 [语义化版本](https://semver.org/)。
 
+## [2.0.0] - 2026-09-20
+
+### 破坏性变更
+- **`UnitBase` 由 `MonoBehaviour` 改为纯 C# 逻辑内核** — 不再继承 `MonoBehaviour`、不再实现 `IPoolable`，不持有 `GameObject` / `Transform` 引用，可脱离场景构造。生命周期状态机、运行时计时器、逻辑开关（`EnableOnLogic`）与三个信号（`onLogic` / `OnUnitDie` / `OnUnitSpawn`）留在内核。
+- **新增 `UnityUnit : MonoBehaviour, IUnitHost, IPoolable`** 承接全部引擎职责 — 改名 / `SetActive` 切换 / `Invoke` 延迟删除 / `Destroy` 或回池 / 跨场景持久化标记 / 挂点 VFX / Gizmos / transform 读写。与内核为**组合**关系（C# 单继承位已被 `MonoBehaviour` 占用），经 `UnityUnit.Core` 取内核、`Core.Host` 取回宿主；子类覆写 `CreateCore()` 提供自己的内核类型。
+- **新增 `IUnitHost` 宿主回调接口** — 内核只认该接口：`OnHostSpawned` / `OnHostDying` / `OnHostDied` / `OnHostDeleted` / `OnHostLogic` / `OnHostStateChanged` 由宿主实现。`OnSpawn()` / `OnDie()` / `OnLogic()` 保留为 `UnityUnit` 的子类覆写钩子，`IUnitHost` 显式实现转发到它们。
+- **`UnitComponent` 体系整体废除** — `UnitComponent` 与 `IUnitComponent` 删除，内核的组件容器与 `__Components__` 自动扫描移除；原组件子类改为直接继承 `MonoBehaviour`。
+- **7 个序列化字段迁至 `UnityUnit`** — `DefaultEnableLogic` / `SpawnOnStart` / `DeleteDelay` / `UnityDestroyDelay` / `DieDisableGameObjects` / `DieEnableGameObjects` / `Selectable`，字段名、类型、默认值与特性均保持不变，既有 Prefab 与场景无需数据迁移。
+- **`UnitBase.SelfTimeScale` 不再序列化** — 改由内核持有（原为 `[HideInInspector] public float`）。
+
+### 新增
+- **`UnitBase.Host` / `UnitBase.Name`** — 内核经宿主取显示名与世界坐标；`unit.Host as XXX` 成为从内核取回表现宿主的惯用法。
+- **`UnityUnit` 转发门面** — `IsAlive` / `IsSpawned` / `IsDeleted` / `LifecycleState` / `Spawn()` / `Die()` / `Delete()` / `SetLogicEnable()` / `PreventDestroy` / `TimerManager` / 三个信号等，原调用点无需改动。
+- **`UnitBase.ResetForPool()` / `CleanupForPool()`** — 池复用的内核态复位与清理，由宿主的 `IPoolable` 实现调用。
+
+### 变更
+- **`UnitModule` 的队列与 tick 目标为纯 C# 内核**（`List<UnitBase>`）；7 处日志由 `unit.gameObject.name` 改读 `unit.Name`。
+- **`Utility.DirectionBetweenUnit` / `DistanceBetweenGameUnit`**、**`VfxAPI.CreateVisualEffectAtUnit`** 的接收者类型由 `UnitBase` 改为 `UnityUnit`。
+- **`GameMode.OnPlayerDeath` / `OnPlayerRespawn`** 与 **`IGameModeEventListener`** 的同名回调形参保持 `UnitBase`，日志改读 `Name`。
+- **`UnitBaseEditor`** 的 `[CustomEditor]` 目标由 `UnitBase` 改为 `UnityUnit`；**`UnitMonitorPage`** 改从 `Host` 取 GameObject 做选中与 Inspector 预览。
+
 ## [1.7.0] - 2026-04-18
 
 ### 新增

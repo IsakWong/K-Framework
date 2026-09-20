@@ -258,7 +258,7 @@ public static class Utility
 
         return _canvas.worldCamera;
     }
-    public static Vector3 DirectionBetweenUnit(this UnitBase a, UnitBase b, bool ignoreY = false)
+    public static Vector3 DirectionBetweenUnit(this UnityUnit a, UnityUnit b, bool ignoreY = false)
     {
         var delta = b.transform.position - a.transform.position;
         if (ignoreY)
@@ -281,7 +281,7 @@ public static class Utility
         return delta.magnitude;
     }
 
-    public static float DistanceBetweenGameUnit(this UnitBase a, UnitBase b, bool ignoreY = true)
+    public static float DistanceBetweenGameUnit(this UnityUnit a, UnityUnit b, bool ignoreY = true)
     {
         var delta = a.transform.position - b.transform.position;
         if (ignoreY)

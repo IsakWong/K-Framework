@@ -298,14 +298,14 @@ public class UnitModule : TModule<UnitModule>
 
             if (unit.LifecycleState != UnitLifecycleState.Spawning)
             {
-                Debug.LogWarning($"[UnitModule] Unit '{unit.gameObject.name}' in spawn queue has invalid state {unit.LifecycleState}");
+                Debug.LogWarning($"[UnitModule] Unit '{unit.Name}' in spawn queue has invalid state {unit.LifecycleState}");
                 continue;
             }
 
             unit.OnSpawn();
             _units.Add(unit);
             OnAddUnit?.Invoke(unit);
-            Debug.Log($"[UnitModule] Spawned: {unit.gameObject.name} → {unit.LifecycleState}");
+            Debug.Log($"[UnitModule] Spawned: {unit.Name} → {unit.LifecycleState}");
         }
     }
 
@@ -330,12 +330,12 @@ public class UnitModule : TModule<UnitModule>
 
             if (unit.LifecycleState != UnitLifecycleState.Dying)
             {
-                Debug.LogWarning($"[UnitModule] Unit '{unit.gameObject.name}' in die queue has invalid state {unit.LifecycleState}");
+                Debug.LogWarning($"[UnitModule] Unit '{unit.Name}' in die queue has invalid state {unit.LifecycleState}");
                 continue;
             }
 
             unit.OnDie();
-            Debug.Log($"[UnitModule] Died: {unit.gameObject.name} → {unit.LifecycleState}");
+            Debug.Log($"[UnitModule] Died: {unit.Name} → {unit.LifecycleState}");
         }
     }
 
@@ -379,11 +379,11 @@ public class UnitModule : TModule<UnitModule>
             if (unit == null) continue;
             
             Debug.Assert(!_logicUnits.Contains(unit), 
-                $"Unit '{unit.gameObject.name}' still in logic units after deletion");
+                $"Unit '{unit.Name}' still in logic units after deletion");
             Debug.Assert(!_units.Contains(unit), 
-                $"Unit '{unit.gameObject.name}' still in units list after deletion");
+                $"Unit '{unit.Name}' still in units list after deletion");
             Debug.Assert(!logicDirtyUnits.Contains(unit), 
-                $"Unit '{unit.gameObject.name}' still in dirty list after deletion");
+                $"Unit '{unit.Name}' still in dirty list after deletion");
         }
         #endif
     }

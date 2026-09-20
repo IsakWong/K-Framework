@@ -378,7 +378,7 @@ public class GameMode : MonoBehaviour
     /// </summary>
     protected virtual void OnPlayerDeath(UnitBase player, UnitBase killer = null)
     {
-        EnhancedLog.Info("GameMode", $"Player died: {player?.name ?? "null"}");
+        EnhancedLog.Info("GameMode", $"Player died: {player?.Name ?? "null"}");
         
         // 通知所有组件
         foreach (var component in modeComponents)
@@ -395,7 +395,7 @@ public class GameMode : MonoBehaviour
     /// </summary>
     protected virtual void OnPlayerRespawn(UnitBase player)
     {
-        EnhancedLog.Info("GameMode", $"Player respawned: {player?.name ?? "null"}");
+        EnhancedLog.Info("GameMode", $"Player respawned: {player?.Name ?? "null"}");
         
         // 通知所有组件
         foreach (var component in modeComponents)
