@@ -4,14 +4,14 @@ K-Framework UI 管理模块。栈式 Fullscreen + 共存 Overlay + 父子级联 
 
 ## 设计原则
 
-- **栈/容器管理与面板生命周期分层**：业务只调 `UIManager`；`UIPanel` 仅暴露字段、信号与可重写回调，所有"打开/关闭/置前"操作必须经 UIManager
+- **栈/容器管理与面板生命周期分层**：业务只调 `UIService`；`UIPanel` 仅暴露字段、信号与可重写回调，所有"打开/关闭/置前"操作必须经 UIService
 - **没有同步包装**：所有改变状态的方法返回 `UniTask`；fire-and-forget 必须显式 `.Forget()`
 - **唯一类型源**：`UIPanelKind { Fullscreen, Overlay }`
 
 ## 架构
 
 ```
-UIManager (PersistentSingleton, IUIService)
+UIService (PersistentSingleton, IUIService)
   ├─ PanelAnimation   : UIAnimation             全局显隐动画
   ├─ _fullscreenStack : LinkedList<UIPanel>     栈式独占
   ├─ _overlays        : List<UIPanel>           叠加层
@@ -93,24 +93,24 @@ UIPanel          GetTopPanel()
 
 ```csharp
 // 启用全局淡入淡出
-UIManager.Instance.PanelAnimation = new UIAnimationFade { Duration = 0.3f };
+UIService.Instance.PanelAnimation = new UIAnimationFade { Duration = 0.3f };
 
 // 打开背包
-var backpack = await UIManager.Instance.PushAsync<UIBackpackPanel>();
+var backpack = await UIService.Instance.PushAsync<UIBackpackPanel>();
 backpack.Initialize(character);
 
 // 关闭当前栈顶
-await UIManager.Instance.CloseAsync();
+await UIService.Instance.CloseAsync();
 
 // HUD（Overlay）
-await UIManager.Instance.PushAsync<UIGameplayPanel>();
+await UIService.Instance.PushAsync<UIGameplayPanel>();
 
 // Fire-and-forget（按钮回调）
 _backButton.onClick.AddListener(() =>
-    UIManager.Instance.CloseAsync(this).Forget());
+    UIService.Instance.CloseAsync(this).Forget());
 
 // 监听动画事件
-UIManager.Instance.PanelAnimation.OnOpenEnd.Connect(panel =>
+UIService.Instance.PanelAnimation.OnOpenEnd.Connect(panel =>
 {
     if (panel is UIMainMenuPanel) StartBackgroundMusic();
 });
@@ -123,7 +123,7 @@ UIPanel 显隐时按优先级解析动画：
 | 优先级 | 来源 | 说明 |
 |--------|------|------|
 | 1 | `UIPanel.PanelAnimation` | 面板级覆盖 |
-| 2 | `UIManager.Instance.PanelAnimation` | 全局动画 |
+| 2 | `UIService.Instance.PanelAnimation` | 全局动画 |
 | 3 | `OpenFx` / `CloseFx` | MMF_Player 自动包装 |
 
 ### 自定义动画

@@ -1,16 +1,16 @@
 # 对象池
 
-K-Framework 提供三层对象池：`GameObjectPool`（单个 Prefab 池）、`PoolManager`（多 Prefab 注册中心）和 `CSharpPool<T>`（纯 C# 泛型池）。
+K-Framework 提供三层对象池：`GameObjectPool`（单个 Prefab 池）、`PoolService`（多 Prefab 注册中心）和 `CSharpPool<T>`（纯 C# 泛型池）。
 
 ## 池层级
 
 | 层级 | 类型 | 用途 |
 |------|------|------|
-| PoolManager | `IPoolService` | 多 Prefab 注册中心 + 实例跟踪 |
+| PoolService | `IPoolService` | 多 Prefab 注册中心 + 实例跟踪 |
 | GameObjectPool | — | 单个 Prefab 的对象池（GameObject） |
 | CSharpPool\<T\> | — | 纯 C# 泛型对象池 |
 
-## PoolManager
+## PoolService
 
 通过服务接口访问：
 

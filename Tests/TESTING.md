@@ -84,11 +84,11 @@ public class XxxTests
 | `GameMode` | 场景生命周期 | PlayMode + 场景测试 |
 | `TModule<T>` | Awake 自动注册 | PlayMode |
 | `PersistentSingleton<T>` | DontDestroyOnLoad | PlayMode |
-| `GameObjectPool / PoolManager` | 依赖 Instantiate/Destroy | PlayMode |
-| `UIManager / UIPanel` | 需要 Canvas/场景 | PlayMode |
-| `SoundManager` | 需要 AudioSource/Mixer | PlayMode |
-| `AssetManager` | 依赖 Addressables | PlayMode |
-| `ConfigManager` | 需要 ScriptableObject 资源 | PlayMode |
+| `GameObjectPool / PoolService` | 依赖 Instantiate/Destroy | PlayMode |
+| `UIService / UIPanel` | 需要 Canvas/场景 | PlayMode |
+| `SoundService` | 需要 AudioSource/Mixer | PlayMode |
+| `AssetService` | 依赖 Addressables | PlayMode |
+| `ConfigService` | 需要 ScriptableObject 资源 | PlayMode |
 | `KCoroutine / CoroutineManager` | ✅ 已有 EditMode 测试 (KCoroutineTests.cs) | - |
 | `BehaviorTree` | 复杂决策树系统 | 需专项测试设计 |
 | `UnitBase / UnitModule` | 依赖 GameObject/场景 | PlayMode |

@@ -10,12 +10,12 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 │         GameMode 子类 / Controller 子类 / 业务逻辑                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    FrameworkExt Layer（游戏扩展层）                     │
-│   UnitBase · UnitModule · PlayerModule · VfxManager · HUD · Camera  │
+│   UnitBase · UnitModule · PlayerModule · VfxService · HUD · Camera  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                     Module Layer（功能模块层）                          │
-│   UIManager · SoundManager · AssetManager · ConfigManager           │
-│   PersistentDataManager · SettingsManager · DebugManager            │
-│   SceneManager · EventBus · KVersion                                │
+│   UIService · SoundService · AssetService · ConfigService           │
+│   PersistentDataService · SettingsService · DebugService            │
+│   SceneService · EventBus · KVersion                                │
 ├─────────────────────────────────────────────────────────────────────┤
 │                      Core Layer（核心层）                              │
 │   KGameCore · GameCoreProxy · GameMode · TModule<T>                 │
@@ -45,16 +45,16 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 | **Observer** | `KSignal` / `Subscriber` / `EventBus` | 点对点信号 + 全局事件解耦通信 |
 | **Command** | `Command` / `CommandQueue` | 命令模式，支持优先级和队列执行 |
 | **State Machine** | `StateMachine` / `HybridStateMachine` | 层级状态机，条件转换 |
-| **Object Pool** | `GameObjectPool` / `PoolManager` / `CSharpPool<T>` | GameObject 对象池 + 纯 C# 对象池 |
+| **Object Pool** | `GameObjectPool` / `PoolService` / `CSharpPool<T>` | GameObject 对象池 + 纯 C# 对象池 |
 | **Module** | `TModule<T>` | 运行时可热插拔功能模块 |
 
 ## 关键约定
 
-- **服务访问**：推荐 `ServiceLocator.Get<ISoundService>()`（接口隔离，可 Mock）；兼容 `SoundManager.Instance`（经典单例）。安全访问用 `ServiceLocator.TryGet<T>(out var svc)`
+- **服务访问**：推荐 `ServiceLocator.Get<ISoundService>()`（接口隔离，可 Mock）；兼容 `SoundService.Instance`（经典单例）。安全访问用 `ServiceLocator.TryGet<T>(out var svc)`
 - **信号系统**：用 `KSignal`/`KSignal<T>`（点对点）和 `EventBus`（全局广播），禁止 C# 原生事件或 `UnityEvent`
-- **UI 管理**：所有栈操作必须走 `UIManager`，`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
-- **资源加载**：`AssetManager` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
-- **对象池**：`PoolManager` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
+- **UI 管理**：所有栈操作必须走 `UIService`，`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
+- **资源加载**：`AssetService` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
+- **对象池**：`PoolService` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
 - **协程**：`KCoroutine` 不依赖 MonoBehaviour，可在纯 C# 上下文使用
 - **命名空间**：代码在 `Framework.*` 下，部分遗留类在全局命名空间，新增代码统一用 `KFramework.*`
 

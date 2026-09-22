@@ -15,36 +15,36 @@
 
 ```csharp
 // 播放音效
-SoundManager.Instance.PlaySound(clip, category);
+SoundService.Instance.PlaySound(clip, category);
 
 // 播放 3D 音效
-SoundManager.Instance.PlaySound3D(clip, position);
+SoundService.Instance.PlaySound3D(clip, position);
 
 // 播放音乐
-SoundManager.Instance.PlayMusic(clip);
+SoundService.Instance.PlayMusic(clip);
 
 // 停止当前音乐
-SoundManager.Instance.PopTrack();
+SoundService.Instance.PopTrack();
 
 // Mixer 控制
-SoundManager.Instance.SetMixerVolume("MusicVolume", 0.8f);
-float vol = SoundManager.Instance.GetMixerVolume("MusicVolume");
+SoundService.Instance.SetMixerVolume("MusicVolume", 0.8f);
+float vol = SoundService.Instance.GetMixerVolume("MusicVolume");
 
 // Snapshot 过渡
-SoundManager.Instance.TransitionToSnapshot(snapshot);
+SoundService.Instance.TransitionToSnapshot(snapshot);
 
 // BGM Ducking（侧链压缩）
-SoundManager.Instance.DuckBGM(duration);
-SoundManager.Instance.UnduckBGM();
+SoundService.Instance.DuckBGM(duration);
+SoundService.Instance.UnduckBGM();
 
 // 音量
-SoundManager.Instance.MusicVolume = 0.8f;
+SoundService.Instance.MusicVolume = 0.8f;
 
 // 查询是否可播放（考虑并发/冷却限制）
-bool canPlay = SoundManager.Instance.CanPlaySound(soundData);
+bool canPlay = SoundService.Instance.CanPlaySound(soundData);
 
 // 获取有效音量（含逐实例衰减）
-float effectiveVol = SoundManager.Instance.GetEffectiveVolume(data, 1f);
+float effectiveVol = SoundService.Instance.GetEffectiveVolume(data, 1f);
 ```
 
 ## SoundCategory 参数
@@ -59,7 +59,7 @@ float effectiveVol = SoundManager.Instance.GetEffectiveVolume(data, 1f);
 
 ## SoundEmitter
 
-`SoundEmitter` 是 AudioSource 的池化包装，实现 `IPoolable` 接口，由 `PoolManager` 统一管理。
+`SoundEmitter` 是 AudioSource 的池化包装，实现 `IPoolable` 接口，由 `PoolService` 统一管理。
 
 - `OnSpawned()` — 从池中取出时初始化
 - `OnDespawned()` — 回池时清理

@@ -1,24 +1,24 @@
 # 资源管理
 
-`AssetManager` 封装 Unity Addressables（Runtime）和 AssetDatabase（Editor），提供统一的资源加载接口。禁止直接使用 `Resources.Load()`。
+`AssetService` 封装 Unity Addressables（Runtime）和 AssetDatabase（Editor），提供统一的资源加载接口。禁止直接使用 `Resources.Load()`。
 
 ## 基本用法
 
 ```csharp
 // 同步加载（Editor 中通过 AssetDatabase，Runtime 通过 Addressables）
-var prefab = AssetManager.Instance.LoadAsset<GameObject>(path);
+var prefab = AssetService.Instance.LoadAsset<GameObject>(path);
 
 // 异步加载
-var prefab = await AssetManager.Instance.LoadAssetAsync<GameObject>(path);
+var prefab = await AssetService.Instance.LoadAssetAsync<GameObject>(path);
 
 // 通过 AssetReference 加载
-var prefab = AssetManager.Instance.LoadAsset<GameObject>(assetReference);
+var prefab = AssetService.Instance.LoadAsset<GameObject>(assetReference);
 
 // 实例化
-var instance = AssetManager.Instance.Instantiate(reference);
+var instance = AssetService.Instance.Instantiate(reference);
 
 // 释放
-AssetManager.Instance.Release(handle);
+AssetService.Instance.Release(handle);
 ```
 
 ## 服务接口

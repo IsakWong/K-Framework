@@ -12,16 +12,16 @@ Foundation → Core → Module → FrameworkExt（游戏扩展层）
 
 - **Foundation**：`KSingleton<T>`、`PersistentSingleton<T>`、`ServiceLocator`、`EnhancedLog`、`KTimer`
 - **Core**：`KGameCore`（全局单例，Module 容器）、`GameMode`（场景生命周期）、`TModule<T>`（可热插拔模块）、`KSignal`/`Subscriber`、`KCoroutine`、FSM、BehaviorTree、`Command`、`KActionBase`
-- **Module**：`UIManager`、`SoundManager`、`AssetManager`、`ConfigManager`、`SceneManager`、`EventBus`、`PersistentDataManager`、`SettingsManager`、`DebugManager`
-- **FrameworkExt**：`UnitBase`/`UnitModule`、`ControllerBase`/`PlayerModule`、`VfxManager`、`HUDBase`、`CameraInstance`
+- **Module**：`UIService`、`SoundService`、`AssetService`、`ConfigService`、`SceneService`、`EventBus`、`PersistentDataService`、`SettingsService`、`DebugService`
+- **FrameworkExt**：`UnitBase`/`UnitModule`、`ControllerBase`/`PlayerModule`、`VfxService`、`HUDBase`、`CameraInstance`
 
 ## 关键约定
 
-- **服务访问**：推荐 `ServiceLocator.Get<ISoundService>()`（接口隔离，可 Mock）；兼容 `SoundManager.Instance`（经典单例）。安全访问用 `ServiceLocator.TryGet<T>(out var svc)`
+- **服务访问**：推荐 `ServiceLocator.Get<ISoundService>()`（接口隔离，可 Mock）；兼容 `SoundService.Instance`（经典单例）。安全访问用 `ServiceLocator.TryGet<T>(out var svc)`
 - **信号系统**：用 `KSignal`/`KSignal<T>`（点对点）和 `EventBus`（全局广播），禁止 C# 原生事件或 `UnityEvent`
-- **UI 管理**：所有栈操作必须走 `UIManager`（`PushAsync<T>()`、`CloseAsync()`、`BringToFrontAsync<T>()`），`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
-- **资源加载**：`AssetManager` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
-- **对象池**：`PoolManager` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
+- **UI 管理**：所有栈操作必须走 `UIService`（`PushAsync<T>()`、`CloseAsync()`、`BringToFrontAsync<T>()`），`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
+- **资源加载**：`AssetService` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
+- **对象池**：`PoolService` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
 - **协程**：`KCoroutine` 不依赖 MonoBehaviour，可在纯 C# 上下文使用
 - **命名空间**：代码在 `Framework.*` 下，部分遗留类在全局命名空间，新增代码统一用 `KFramework.*`
 

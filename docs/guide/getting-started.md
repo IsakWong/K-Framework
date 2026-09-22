@@ -39,7 +39,7 @@ KFramework/
 
 ```csharp
 // ① 经典单例访问（向后兼容）
-AssetManager.Instance.LoadAsset<T>(path);
+AssetService.Instance.LoadAsset<T>(path);
 
 // ② Service Locator + 接口访问（推荐）
 var assets = ServiceLocator.Get<IAssetService>();

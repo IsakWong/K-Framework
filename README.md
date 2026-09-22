@@ -86,12 +86,12 @@ KFramework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 │         GameMode 子类 / Controller 子类 / 业务逻辑                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    FrameworkExt Layer (游戏扩展层)                     │
-│   UnitBase · UnitModule · PlayerModule · VfxManager · HUD · Camera  │
+│   UnitBase · UnitModule · PlayerModule · VfxService · HUD · Camera  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                     Module Layer (功能模块层)                          │
-│   UIManager · SoundManager · AssetManager · ConfigManager           │
-│   PersistentDataManager · SettingsManager · DebugManager            │
-│   SceneManager · EventBus · KVersion                                │
+│   UIService · SoundService · AssetService · ConfigService           │
+│   PersistentDataService · SettingsService · DebugService            │
+│   SceneService · EventBus · KVersion                                │
 ├─────────────────────────────────────────────────────────────────────┤
 │                      Core Layer (核心层)                              │
 │   KGameCore · GameCoreProxy · GameMode · TModule<T>                 │
@@ -112,14 +112,14 @@ KFramework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 | **Observer** | `KSignal` / `Subscriber` / `EventBus` | 点对点信号 + 全局事件解耦通信 |
 | **Command** | `Command` / `CommandQueue` | 命令模式，支持优先级和队列执行 |
 | **State Machine** | `StateMachine` / `HybridStateMachine` | 层级状态机，条件转换 |
-| **Object Pool** | `GameObjectPool` / `PoolManager` / `CSharpPool<T>` | GameObject 对象池 + 纯 C# 对象池，统一管理实例复用 |
+| **Object Pool** | `GameObjectPool` / `PoolService` / `CSharpPool<T>` | GameObject 对象池 + 纯 C# 对象池，统一管理实例复用 |
 | **Module** | `TModule<T>` | 运行时可热插拔功能模块 |
 
 ### 1.3 服务访问方式
 
 ```csharp
 // ① 经典单例访问（向后兼容）
-AssetManager.Instance.LoadAsset<T>(path);
+AssetService.Instance.LoadAsset<T>(path);
 
 // ② Service Locator + 接口访问（推荐）
 var assets = ServiceLocator.Get<IAssetService>();
@@ -173,15 +173,15 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 | 模块 | 管理器 | 接口 | 单例类型 | 核心功能 |
 |---|---|---|---|---|
-| **Assets** | `AssetManager` | `IAssetService` | KSingleton | Editor: AssetDatabase; Runtime: Addressables; 异步加载/实例化/释放 |
-| **Config** | `ConfigManager` | `IConfigService` | KSingleton | ScriptableObject 配置加载 + 缓存 |
-| **UI** | `UIManager` | `IUIService` | PersistentSingleton | UI 栈管理、全屏/普通分层、Push/Pop/Close/Destroy、Canvas 管理 |
-| **Sound** | `SoundManager` | `ISoundService` | PersistentSingleton | 音效/音乐管理、对象池、并发限制/冷却/音量衰减、AudioMixer 控制、BGM Ducking、Snapshot 过渡、交叉淡入淡出、3D 音效 |
-| **Settings** | `SettingsManager` | `ISettingsService` | KSingleton | 游戏设置 (画质/分辨率/全屏)，JSON 持久化 |
-| **PersistentData** | `PersistentDataManager` | `IPersistentDataService` | KSingleton | JSON 存档系统、Base64 加密、场景数据 |
-| **Scene** | `SceneManager` | `ISceneService` | PersistentSingleton | 场景加载/卸载/叠加、Addressables/Built-in、历史记录/GoBack、过渡效果 |
+| **Assets** | `AssetService` | `IAssetService` | KSingleton | Editor: AssetDatabase; Runtime: Addressables; 异步加载/实例化/释放 |
+| **Config** | `ConfigService` | `IConfigService` | KSingleton | ScriptableObject 配置加载 + 缓存 |
+| **UI** | `UIService` | `IUIService` | PersistentSingleton | UI 栈管理、全屏/普通分层、Push/Pop/Close/Destroy、Canvas 管理 |
+| **Sound** | `SoundService` | `ISoundService` | PersistentSingleton | 音效/音乐管理、对象池、并发限制/冷却/音量衰减、AudioMixer 控制、BGM Ducking、Snapshot 过渡、交叉淡入淡出、3D 音效 |
+| **Settings** | `SettingsService` | `ISettingsService` | KSingleton | 游戏设置 (画质/分辨率/全屏)，JSON 持久化 |
+| **PersistentData** | `PersistentDataService` | `IPersistentDataService` | KSingleton | JSON 存档系统、Base64 加密、场景数据 |
+| **Scene** | `SceneService` | `ISceneService` | PersistentSingleton | 场景加载/卸载/叠加、Addressables/Built-in、历史记录/GoBack、过渡效果 |
 | **EventBus** | `EventBus` | `IEventBusService` | KSingleton | 全局类型路由事件、优先级/粘性/一次性订阅、Subscriber 集成 |
-| **Debug** | `DebugManager` | `IDebugService` | PersistentSingleton | Gizmos 绘制管理、调试 GUI |
+| **Debug** | `DebugService` | `IDebugService` | PersistentSingleton | Gizmos 绘制管理、调试 GUI |
 | **Version** | `KVersion` (static) | — | 静态类 | 框架版本 + 游戏版本 + 构建信息 |
 
 ### 2.4 FrameworkExt Layer — 游戏扩展层
@@ -193,7 +193,7 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 | **Unit** | `UnitComponent` | Unit 组件基类 |
 | **Player** | `ControllerBase` | 玩家输入控制器，内置 CommandQueue |
 | **Player** | `PlayerModule` | 玩家控制器注册管理 |
-| **Vfx** | `VfxManager` / `IVfxService` | 特效对象池管理 |
+| **Vfx** | `VfxService` / `IVfxService` | 特效对象池管理 |
 | **HUD** | `HUDBase` | HUD 基类 |
 | **Camera** | `CameraInstance` | 相机单例管理 |
 
@@ -201,7 +201,7 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 | 目录 | 说明 |
 |---|---|
-| `ObjectPool/` | `GameObjectPool` (单 Prefab 池 + IPoolable 回调) · `PoolManager` (多 Prefab 注册中心 + 实例跟踪) · `CSharpPool<T>` (纯 C# 泛型池) · `ListPool/DictionaryPool/HashSetPool` 集合池 |
+| `ObjectPool/` | `GameObjectPool` (单 Prefab 池 + IPoolable 回调) · `PoolService` (多 Prefab 注册中心 + 实例跟踪) · `CSharpPool<T>` (纯 C# 泛型池) · `ListPool/DictionaryPool/HashSetPool` 集合池 |
 | `Attributes/` | `[AutoBind]` 自动绑定组件 + `[DisplayName]` 编辑器显示名 |
 | `JsonConverter/` | Newtonsoft.Json 的 Unity 类型转换器 (Vector/Quaternion/Addressables 等) |
 | `Audio/` | `AudioConfig` 音频配置 ScriptableObject (Mixer 参数名、SoundCategory 预设) |
@@ -231,18 +231,18 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 | 接口 | 实现类 | 主要 API |
 |---|---|---|
-| `IAssetService` | `AssetManager` | `LoadAsset<T>(path)` · `LoadAssetAsync<T>(path)` · `LoadAsset<T>(AssetReference)` · `Instantiate(ref)` · `Release(handle)` |
-| `IConfigService` | `ConfigManager` | `GetConfig<T>(name)` |
-| `IUIService` | `UIManager` | `Push<T>()` · `Pop()` · `Close<T>()` · `Get<T>()` · `DestroyUI<T>()` · `VisibleStack` · `OverlayCanvas` |
-| `ISoundService` | `SoundManager` | `PlaySound(clip)` · `PlaySound3D(clip,pos)` · `PlayMusic(clip)` · `PopTrack()` · `SetMixerVolume(param,vol)` · `GetMixerVolume(param)` · `TransitionToSnapshot(snap)` · `DuckBGM(duration)` · `UnduckBGM()` · `MusicVolume` · `CanPlaySound(data)` · `GetEffectiveVolume(data,vol)` |
-| `ISettingsService` | `SettingsManager` | `CurrentSettings` · `SaveSettings()` · `SetQuality(level)` · `SetResolution(w,h)` |
-| `IPersistentDataService` | `PersistentDataManager` | `SaveData(key,data)` · `LoadData<T>(key)` · `DeleteData(key)` · `UpdateData(key,action)` · `GetScenePersistentData(path)` |
-| `ISceneService` | `SceneManager` | `LoadScene(name)` · `LoadSceneAsync(name)` · `LoadAdditiveAsync(name)` · `UnloadAdditiveAsync(name)` · `GoBack()` · `OnSceneLoadBegin/Progress/Complete` |
+| `IAssetService` | `AssetService` | `LoadAsset<T>(path)` · `LoadAssetAsync<T>(path)` · `LoadAsset<T>(AssetReference)` · `Instantiate(ref)` · `Release(handle)` |
+| `IConfigService` | `ConfigService` | `GetConfig<T>(name)` |
+| `IUIService` | `UIService` | `Push<T>()` · `Pop()` · `Close<T>()` · `Get<T>()` · `DestroyUI<T>()` · `VisibleStack` · `OverlayCanvas` |
+| `ISoundService` | `SoundService` | `PlaySound(clip)` · `PlaySound3D(clip,pos)` · `PlayMusic(clip)` · `PopTrack()` · `SetMixerVolume(param,vol)` · `GetMixerVolume(param)` · `TransitionToSnapshot(snap)` · `DuckBGM(duration)` · `UnduckBGM()` · `MusicVolume` · `CanPlaySound(data)` · `GetEffectiveVolume(data,vol)` |
+| `ISettingsService` | `SettingsService` | `CurrentSettings` · `SaveSettings()` · `SetQuality(level)` · `SetResolution(w,h)` |
+| `IPersistentDataService` | `PersistentDataService` | `SaveData(key,data)` · `LoadData<T>(key)` · `DeleteData(key)` · `UpdateData(key,action)` · `GetScenePersistentData(path)` |
+| `ISceneService` | `SceneService` | `LoadScene(name)` · `LoadSceneAsync(name)` · `LoadAdditiveAsync(name)` · `UnloadAdditiveAsync(name)` · `GoBack()` · `OnSceneLoadBegin/Progress/Complete` |
 | `IEventBusService` | `EventBus` | `Subscribe<T>(handler)` · `Publish<T>(event)` · `PublishSticky<T>(event)` · `QuerySticky<T>()` · `Unsubscribe<T>(handler)` |
-| `IDebugService` | `DebugManager` | `DrawGizmos(action)` · `DrawRectangle(pos,size,color)` · `DrawSphere(pos,radius,color)` |
+| `IDebugService` | `DebugService` | `DrawGizmos(action)` · `DrawRectangle(pos,size,color)` · `DrawSphere(pos,radius,color)` |
 | `ILogService` | `EnhancedLog` | `Verbose/Debug/Info/Warning/Error/Fatal(tag,msg)` · `SetGlobalLevel(level)` · `SetTagLevel(tag,level)` |
-| `IVfxService` | `VfxManager` | `Get(prefab,pos,rot)` · `Release(vfx)` · `Preload(prefab,count)` |
-| `IPoolService` | `PoolManager` | `Get(prefab,pos,rot)` · `Get<T>(prefab,pos,rot)` · `Release(instance)` · `Preload(prefab,count)` · `IsPooled(instance)` · `ClearAll()` |
+| `IVfxService` | `VfxService` | `Get(prefab,pos,rot)` · `Release(vfx)` · `Preload(prefab,count)` |
+| `IPoolService` | `PoolService` | `Get(prefab,pos,rot)` · `Get<T>(prefab,pos,rot)` · `Release(instance)` · `Preload(prefab,count)` · `IsPooled(instance)` · `ClearAll()` |
 
 ---
 
@@ -287,10 +287,10 @@ KFramework/                      # UPM 包根目录
 
 | 版本 | 摘要 |
 |---|---|
-| **1.6.0** | 音频系统全面重构 (SoundCategory/SoundData 双层架构 + Mixer API + BGM Ducking)；SoundEmitter 统一 PoolManager；UPM 包结构 |
-| **1.5.0** | 通用对象池 (GameObjectPool + PoolManager + CSharpPool + 集合池)；UnitBase opt-in 回收 |
+| **1.6.0** | 音频系统全面重构 (SoundCategory/SoundData 双层架构 + Mixer API + BGM Ducking)；SoundEmitter 统一 PoolService；UPM 包结构 |
+| **1.5.0** | 通用对象池 (GameObjectPool + PoolService + CSharpPool + 集合池)；UnitBase opt-in 回收 |
 | **1.4.0** | 结构化日志系统 (6 级 + Tag 过滤 + 文件轮转) |
 | **1.3.0** | Service Locator + 12 个服务接口 |
-| **1.2.0** | EventBus 事件总线、SceneManager 场景管理、KVersion 版本模块 |
+| **1.2.0** | EventBus 事件总线、SceneService 场景管理、KVersion 版本模块 |
 | **1.1.0** | Bug 修复、API 规范化 |
 | **1.0.0** | 初始发布 |

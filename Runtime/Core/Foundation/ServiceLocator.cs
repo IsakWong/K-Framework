@@ -10,12 +10,12 @@ using KFramework;
 ///
 /// 与 Singleton 的关系：
 ///   KSingleton / PersistentSingleton 在首次创建时自动注册到 ServiceLocator。
-///   各 Manager 通过 OnServiceRegistered() 额外注册自己的接口类型。
+///   各服务实现类通过 OnServiceInit() 内的 ServiceLocator.Register 额外注册自己的接口类型。
 ///   旧代码的 .Instance 访问方式仍然可用（向后兼容）。
 /// </summary>
 /// <example>
 /// // 注册（由单例基类自动完成，也可手动注册 / 覆盖）
-/// ServiceLocator.Register&lt;IAssetService&gt;(assetManager);
+/// ServiceLocator.Register&lt;IAssetService&gt;(assetService);
 ///
 /// // 获取
 /// var assets = ServiceLocator.Get&lt;IAssetService&gt;();
