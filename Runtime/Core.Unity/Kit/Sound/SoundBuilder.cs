@@ -3,12 +3,12 @@ using UnityEngine.Audio;
 
 public class SoundBuilder
 {
-    private readonly SoundManager soundManager;
+    private readonly SoundService soundManager;
     private Vector3 position = Vector3.zero;
     private bool use3D;
     private float spatialOverride = -1f;
 
-    public SoundBuilder(SoundManager soundManager)
+    public SoundBuilder(SoundService soundManager)
     {
         this.soundManager = soundManager;
     }
@@ -61,7 +61,7 @@ public class SoundBuilder
 
     /// <summary>
     /// 播放音效。category 提供 Mixer 路由 + 并发控制 + AudioSource 默认参数。
-    /// 为 null 时使用 SoundManager.DefaultSoundData 且不限流。
+    /// 为 null 时使用 SoundService.DefaultSoundData 且不限流。
     /// </summary>
     public SoundEmitter Play(SoundCategory category = null)
     {

@@ -8,7 +8,7 @@ namespace Framework.Config
     {
     }
 
-    public class ConfigManager : KSingleton<ConfigManager>, IConfigService
+    public class ConfigService : KSingleton<ConfigService>, IConfigService
     {
         /// <summary>
         /// 全局配置文件位置。业务在 GameCore.OnInit() 中设置。
@@ -28,7 +28,7 @@ namespace Framework.Config
                 name = (typeof(T).Name);
             if (!AllConfigs.ContainsKey(name))
             {
-                var asset = AssetManager.Instance.LoadAsset<T>($"{ConfigPrefix}{name}.asset");
+                var asset = AssetService.Instance.LoadAsset<T>($"{ConfigPrefix}{name}.asset");
                 AllConfigs[name] = asset;
                 return asset;
             }

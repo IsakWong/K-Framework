@@ -26,7 +26,7 @@ using Vector3Converter = Newtonsoft.Json.UnityConverters.Math.Vector3Converter;
 ///   {
 ///       protected override void OnInit()
 ///       {
-///           ConfigManager.Instance.ConfigPrefix = "Assets/MyGame/Config/";
+///           ConfigService.Instance.ConfigPrefix = "Assets/MyGame/Config/";
 ///       }
 ///   }
 ///   KGameCore.Bootstrap&lt;MyGameCore&gt;();

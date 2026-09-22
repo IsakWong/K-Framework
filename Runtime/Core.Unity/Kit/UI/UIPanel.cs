@@ -16,9 +16,9 @@ public enum UIPanelKind
 /// <summary>
 /// UI 面板基类。
 ///
-/// 对外只暴露字段、属性、生命周期信号与可重写回调；所有"打开/关闭/置前"操作必须走 <see cref="UIManager"/>。
+/// 对外只暴露字段、属性、生命周期信号与可重写回调；所有"打开/关闭/置前"操作必须走 <see cref="UIService"/>。
 /// 实际的生命周期方法（OpenAsyncInternal / CloseAsyncInternal / SuspendAsyncInternal / ResumeAsyncInternal）
-/// 标记为 <c>internal</c>，仅 UIManager 调用，避免业务侧绕过容器导致状态不一致。
+/// 标记为 <c>internal</c>，仅 UIService 调用，避免业务侧绕过容器导致状态不一致。
 /// </summary>
 public class UIPanel : MonoBehaviour
 {
@@ -64,7 +64,7 @@ public class UIPanel : MonoBehaviour
     public bool EnableBackgroundBlur = false;
 
     [LabelText("面板动画")]
-    [Tooltip("覆盖全局动画，null 则沿用 UIManager.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
+    [Tooltip("覆盖全局动画，null 则沿用 UIService.PanelAnimation，再 fallback 到 OpenFx/CloseFx")]
     [SerializeReference]
     public UIAnimation PanelAnimation;
 
@@ -127,7 +127,7 @@ public class UIPanel : MonoBehaviour
     // ════════════════════════════════════════════════
 
     /// <summary>
-    /// 全局按键透传给当前栈顶 Panel（由 UIManager 派发，当前未启用调度器）。
+    /// 全局按键透传给当前栈顶 Panel（由 UIService 派发，当前未启用调度器）。
     /// </summary>
     public virtual void OnGlobalButtonPress(KeyCode code)
     {
@@ -139,19 +139,19 @@ public class UIPanel : MonoBehaviour
 
     protected void Awake()
     {
-        UIManager.Instance.AddUI(this);
+        UIService.Instance.AddUI(this);
     }
 
     public void Start()
     {
         if (OpenOnStart)
         {
-            UIManager.Instance.PushAsync(this).Forget();
+            UIService.Instance.PushAsync(this).Forget();
         }
     }
 
     // ════════════════════════════════════════════════
-    // 内部生命周期方法（仅 UIManager 调用）
+    // 内部生命周期方法（仅 UIService 调用）
     // ════════════════════════════════════════════════
 
     /// <summary>
@@ -159,9 +159,9 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask OpenAsyncInternal()
     {
-        EnhancedLog.Log($"[UIManager]{name} OpenAsyncInternal");
+        EnhancedLog.Log($"[UIService]{name} OpenAsyncInternal");
         Visible = true;
-        if (OpenAudio) SoundManager.Instance.PlaySound(OpenAudio);
+        if (OpenAudio) SoundService.Instance.PlaySound(OpenAudio);
 
         var anim = GetEffectiveAnimation();
         CanvasGroup cg = null;
@@ -183,7 +183,7 @@ public class UIPanel : MonoBehaviour
         if (anim != null)
         {
             anim.OnOpenStart?.Invoke(this);
-            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
+            EnhancedLog.Log($"[UIService] {name} PlayOpenAsync");
             await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
             anim.OnOpenEnd?.Invoke(this);
 
@@ -206,7 +206,7 @@ public class UIPanel : MonoBehaviour
 
     /// <summary>
     /// 关闭流程前半段：OnBeforeClose + 停交互 + 发 OnPanelBeginClose 信号。
-    /// 由 UIManager 在并行关闭场景下调用，多个面板的 BeginCloseSequence 完成后，
+    /// 由 UIService 在并行关闭场景下调用，多个面板的 BeginCloseSequence 完成后，
     /// 再统一通过 WhenAll 播放关闭动画。
     /// </summary>
     internal void BeginCloseSequence()
@@ -227,7 +227,7 @@ public class UIPanel : MonoBehaviour
 
     /// <summary>
     /// 准备关闭（停止交互、设 Visible、处理背景模糊、播音效）。
-    /// 由 UIManager 在并行关闭场景下统一调用，然后再并行播放动画。
+    /// 由 UIService 在并行关闭场景下统一调用，然后再并行播放动画。
     /// </summary>
     private void PrepareForClose()
     {
@@ -237,12 +237,12 @@ public class UIPanel : MonoBehaviour
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, false);
 
-        if (CloseAudio) SoundManager.Instance.PlaySound(CloseAudio);
+        if (CloseAudio) SoundService.Instance.PlaySound(CloseAudio);
     }
 
     /// <summary>
     /// 仅播放关闭动画（无信号、无 OnClose）。
-    /// 由 UIManager 在并行关闭场景下调用，所有 panel 的动画通过 WhenAll 并行播放。
+    /// 由 UIService 在并行关闭场景下调用，所有 panel 的动画通过 WhenAll 并行播放。
     /// </summary>
     internal async UniTask PlayCloseAnimationAsync()
     {
@@ -259,7 +259,7 @@ public class UIPanel : MonoBehaviour
 
     /// <summary>
     /// 挂起：保留订阅与 BGM，仅淡出并 SetActive(false)。
-    /// 仅当 <see cref="KeepAliveOnSuspend"/> 为 true 时由 UIManager 调用。
+    /// 仅当 <see cref="KeepAliveOnSuspend"/> 为 true 时由 UIService 调用。
     /// </summary>
     internal async UniTask SuspendAsyncInternal()
     {
@@ -294,7 +294,7 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     internal async UniTask ResumeAsyncInternal()
     {
-        EnhancedLog.Log($"[UIManager] {name} ResumeAsyncInternal");
+        EnhancedLog.Log($"[UIService] {name} ResumeAsyncInternal");
         Visible = true;
 
         var anim = GetEffectiveAnimation();
@@ -315,7 +315,7 @@ public class UIPanel : MonoBehaviour
         if (anim != null)
         {
             anim.OnOpenStart?.Invoke(this);
-            EnhancedLog.Log($"[UIManager] {name} PlayOpenAsync");
+            EnhancedLog.Log($"[UIService] {name} PlayOpenAsync");
             await anim.PlayOpenAsync(cg, this.GetCancellationTokenOnDestroy());
             anim.OnOpenEnd?.Invoke(this);
 
@@ -342,7 +342,7 @@ public class UIPanel : MonoBehaviour
     {
         OnPanelOpen?.Invoke();
         if (BGM)
-            SoundManager.Instance.PlayMusic(BGM);
+            SoundService.Instance.PlayMusic(BGM);
     }
 
     /// <summary>面板完整关闭后调用（动画播完）。默认行为：触发 OnPanelClose、断订阅、SetActive(false)、Pop BGM。</summary>
@@ -353,7 +353,7 @@ public class UIPanel : MonoBehaviour
         subscriber.DisconnectAll();
         gameObject.SetActive(false);
         if (BGM)
-            SoundManager.Instance.PopTrack();
+            SoundService.Instance.PopTrack();
     }
 
     /// <summary>挂起完成后调用。默认空实现 —— 不断订阅、不动 BGM。</summary>
@@ -373,7 +373,7 @@ public class UIPanel : MonoBehaviour
     protected virtual UIAnimation GetEffectiveAnimation()
     {
         if (PanelAnimation != null) return PanelAnimation;
-        if (UIManager.Instance?.PanelAnimation != null) return UIManager.Instance.PanelAnimation;
+        if (UIService.Instance?.PanelAnimation != null) return UIService.Instance.PanelAnimation;
         return null;
     }
 

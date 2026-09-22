@@ -39,7 +39,7 @@ public static class VfxAPI
 
     public static Vfx CreateUIVisualEffect(GameObject gameObject, Vector3 worldPosition, Vector3 direction)
     {
-        var effectBase = VfxManager.Instance.Get(gameObject, worldPosition,
+        var effectBase = VfxService.Instance.Get(gameObject, worldPosition,
             direction == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(direction),
             CanvasInstance.Instance.BehaviourInstance.transform);
         effectBase.gameObject.layer = LayerMask.NameToLayer("UI");
@@ -49,7 +49,7 @@ public static class VfxAPI
     public static Vfx CreateVisualEffectAtUnit(GameObject source, UnityUnit target, Vector3 direction,
         Vector3 offset)
     {
-        var effectBase = VfxManager.Instance.Get(source, offset,
+        var effectBase = VfxService.Instance.Get(source, offset,
             direction == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(direction),
             target.transform);
         return effectBase;
@@ -57,7 +57,7 @@ public static class VfxAPI
 
     public static Vfx CreateVisualEffect(GameObject source, Vector3 position, Vector3 direction)
     {
-        var effectBase = VfxManager.Instance.Get(source, position, Quaternion.LookRotation(direction));
+        var effectBase = VfxService.Instance.Get(source, position, Quaternion.LookRotation(direction));
         effectBase.transform.SetParent(mRootEffect, true);
         return effectBase;
     }
@@ -66,7 +66,7 @@ public static class VfxAPI
     public static Vfx CreateVisualEffectWithLifeTime(GameObject source, Vector3 position, Vector3 direction,
         float lifeTime = -1f)
     {
-        var effectBase = VfxManager.Instance.Get(source, position, Quaternion.LookRotation(direction));
+        var effectBase = VfxService.Instance.Get(source, position, Quaternion.LookRotation(direction));
         effectBase.mLifeTime = lifeTime;
         effectBase.transform.SetParent(mRootEffect, true);
         return effectBase;
@@ -74,7 +74,7 @@ public static class VfxAPI
 
     public static Vfx CreateVisualEffect(GameObject source, Vector3 position)
     {
-        var result = VfxManager.Instance.Get(source, position, Quaternion.identity);
+        var result = VfxService.Instance.Get(source, position, Quaternion.identity);
         result.transform.SetParent(mRootEffect);
         return result;
     }

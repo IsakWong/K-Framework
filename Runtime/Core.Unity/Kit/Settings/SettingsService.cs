@@ -15,7 +15,7 @@ namespace Framework.Settings
     }
 
 
-    public class SettingsManager : KSingleton<SettingsManager>, ISettingsService
+    public class SettingsService : KSingleton<SettingsService>, ISettingsService
     {
         private const string SettingsFileName = "Settings.json";
         Settings _settings;
@@ -29,14 +29,14 @@ namespace Framework.Settings
             get
             {
                 if(_settings == null)
-                    _settings = PersistentDataManager.Instance.LoadData<Settings>(SettingsFileName);
+                    _settings = PersistentDataService.Instance.LoadData<Settings>(SettingsFileName);
                 return _settings;
             }
         }
 
         public void SaveSettings()
         {
-            PersistentDataManager.Instance.SaveData(SettingsFileName, CurrentSettings);
+            PersistentDataService.Instance.SaveData(SettingsFileName, CurrentSettings);
         }
 
         public void LoadSettings()

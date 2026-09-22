@@ -12,7 +12,7 @@ using UnityEngine.SceneManagement;
 /// 场景管理器 — 集中管理场景加载、卸载、切换和叠加
 /// 使用 PersistentSingleton 保证跨场景存活
 /// </summary>
-public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
+public class SceneService : PersistentSingleton<SceneService>, ISceneService
 {
     // ─── 状态 ───
 
@@ -79,7 +79,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     {
         if (IsLoading)
         {
-            Debug.LogWarning("[SceneManager] 已有场景正在加载，忽略重复请求");
+            Debug.LogWarning("[SceneService] 已有场景正在加载，忽略重复请求");
             return;
         }
 
@@ -94,7 +94,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     {
         if (IsLoading)
         {
-            Debug.LogWarning("[SceneManager] 已有场景正在加载，忽略重复请求");
+            Debug.LogWarning("[SceneService] 已有场景正在加载，忽略重复请求");
             yield break;
         }
 
@@ -141,7 +141,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         if (loadHandle.Status != AsyncOperationStatus.Succeeded)
         {
             var error = $"场景加载失败: {loadHandle.OperationException?.Message ?? "Unknown error"}";
-            Debug.LogError($"[SceneManager] {error}");
+            Debug.LogError($"[SceneService] {error}");
             OnSceneLoadError.Invoke(error);
             IsLoading = false;
             yield break;
@@ -191,13 +191,13 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// 通过场景名切换主场景（使用 Unity 内置 SceneManager）
+    /// 通过场景名切换主场景（使用 Unity 内置 SceneService）
     /// </summary>
     public void LoadSceneByName(string sceneName, Action onComplete = null, bool recordHistory = true)
     {
         if (IsLoading)
         {
-            Debug.LogWarning("[SceneManager] 已有场景正在加载，忽略重复请求");
+            Debug.LogWarning("[SceneService] 已有场景正在加载，忽略重复请求");
             return;
         }
 
@@ -211,7 +211,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     {
         if (IsLoading)
         {
-            Debug.LogWarning("[SceneManager] 已有场景正在加载，忽略重复请求");
+            Debug.LogWarning("[SceneService] 已有场景正在加载，忽略重复请求");
             yield break;
         }
 
@@ -238,7 +238,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         if (asyncOp == null)
         {
             var error = $"无法加载场景: {sceneName}（场景未添加到 Build Settings）";
-            Debug.LogError($"[SceneManager] {error}");
+            Debug.LogError($"[SceneService] {error}");
             OnSceneLoadError.Invoke(error);
             IsLoading = false;
             yield break;
@@ -305,7 +305,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     {
         if (!CanGoBack)
         {
-            Debug.LogWarning("[SceneManager] 没有可返回的场景");
+            Debug.LogWarning("[SceneService] 没有可返回的场景");
             return;
         }
 
@@ -349,7 +349,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         var key = sceneRef.AssetGUID;
         if (_additiveScenes.ContainsKey(key))
         {
-            Debug.LogWarning($"[SceneManager] 叠加场景已加载: {key}");
+            Debug.LogWarning($"[SceneService] 叠加场景已加载: {key}");
             yield break;
         }
 
@@ -365,20 +365,20 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         }
         else
         {
-            Debug.LogError($"[SceneManager] 叠加场景加载失败: {handle.OperationException?.Message}");
+            Debug.LogError($"[SceneService] 叠加场景加载失败: {handle.OperationException?.Message}");
             OnSceneLoadError.Invoke($"叠加场景加载失败: {key}");
         }
     }
 
     /// <summary>
-    /// 叠加加载场景（通过名称，使用内置 SceneManager）
+    /// 叠加加载场景（通过名称，使用内置 SceneService）
     /// </summary>
     public IEnumerator LoadAdditiveSceneByNameCoroutine(string sceneName, Action onComplete = null)
     {
         var asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
         if (asyncOp == null)
         {
-            Debug.LogError($"[SceneManager] 无法叠加加载场景: {sceneName}");
+            Debug.LogError($"[SceneService] 无法叠加加载场景: {sceneName}");
             yield break;
         }
 
@@ -395,7 +395,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         var key = sceneRef.AssetGUID;
         if (!_additiveScenes.TryGetValue(key, out var handle))
         {
-            Debug.LogWarning($"[SceneManager] 叠加场景未找到: {key}");
+            Debug.LogWarning($"[SceneService] 叠加场景未找到: {key}");
             yield break;
         }
 
@@ -416,7 +416,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
         var scene = UnityEngine.SceneManagement.SceneManager.GetSceneByName(sceneName);
         if (!scene.isLoaded)
         {
-            Debug.LogWarning($"[SceneManager] 场景未加载: {sceneName}");
+            Debug.LogWarning($"[SceneService] 场景未加载: {sceneName}");
             yield break;
         }
 
@@ -511,7 +511,7 @@ public class SceneManager : PersistentSingleton<SceneManager>, ISceneService
     {
         if (CurrentScene == null)
         {
-            Debug.LogWarning("[SceneManager] 没有当前场景信息，无法重载");
+            Debug.LogWarning("[SceneService] 没有当前场景信息，无法重载");
             return;
         }
 
@@ -567,7 +567,7 @@ public class SceneInfo
 /// <summary>
 /// 场景过渡效果接口
 /// 业务层实现此接口来提供自定义 Loading Screen / 过渡动画
-/// 框架的 SceneManager 通过此接口驱动过渡，不依赖任何具体 UI 类
+/// 框架的 SceneService 通过此接口驱动过渡，不依赖任何具体 UI 类
 /// </summary>
 /// <example>
 /// // 示例：在业务层用 UILoadingPanel 实现
@@ -575,8 +575,8 @@ public class SceneInfo
 /// {
 ///     public void BeginTransition(IEnumerator sceneLoadTask)
 ///     {
-///         var panel = UIManager.Instance.PushUI&lt;UILoadingPanel&gt;();
-///         panel.BeginTask(sceneLoadTask, () => UIManager.Instance.PopUI(panel));
+///         var panel = UIService.Instance.PushUI&lt;UILoadingPanel&gt;();
+///         panel.BeginTask(sceneLoadTask, () => UIService.Instance.PopUI(panel));
 ///     }
 ///     
 ///     public void ReportProgress(float progress)
@@ -586,7 +586,7 @@ public class SceneInfo
 /// }
 ///
 /// // 注册:
-/// SceneManager.Instance.SetTransition(new LoadingPanelTransition());
+/// SceneService.Instance.SetTransition(new LoadingPanelTransition());
 /// </example>
 public interface ISceneTransition
 {
@@ -594,12 +594,12 @@ public interface ISceneTransition
     /// 开始过渡效果并执行场景加载任务
     /// 实现者负责：显示 Loading UI → yield sceneLoadTask → 隐藏 Loading UI
     /// </summary>
-    /// <param name="sceneLoadTask">场景加载协程，由 SceneManager 提供</param>
+    /// <param name="sceneLoadTask">场景加载协程，由 SceneService 提供</param>
     void BeginTransition(IEnumerator sceneLoadTask);
 
     /// <summary>
     /// 进度更新回调（0~1），可用于更新进度条
-    /// SceneManager 在加载过程中会主动调用此方法
+    /// SceneService 在加载过程中会主动调用此方法
     /// </summary>
     void ReportProgress(float progress);
 }

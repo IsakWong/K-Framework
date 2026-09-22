@@ -6,7 +6,7 @@ using Framework.Foundation;
 using UnityEngine;
 
 [DefaultExecutionOrder(GameCoreProxy.ModuleOrder)]
-public class UIManager : PersistentSingleton<UIManager>, IUIService
+public class UIService : PersistentSingleton<UIService>, IUIService
 {
     /// <summary>
     /// UI 预制体路径前缀。业务在 GameCore.OnInit() 中设置。
@@ -99,10 +99,10 @@ public class UIManager : PersistentSingleton<UIManager>, IUIService
         }
 
         var assetPath = !string.IsNullOrEmpty(path) ? path : $"{UIPrefix}{type.Name}.prefab";
-        var prefab = await AssetManager.Instance.LoadAssetAsync<GameObject>(assetPath);
+        var prefab = await AssetService.Instance.LoadAssetAsync<GameObject>(assetPath);
         if (prefab == null)
         {
-            Debug.LogError($"[UIManager] 未找到 UI 预制体：{assetPath}");
+            Debug.LogError($"[UIService] 未找到 UI 预制体：{assetPath}");
             return null;
         }
 

@@ -49,7 +49,7 @@ public class Vfx : MonoBehaviour, IPoolable
 
     public void Release()
     {
-        VfxManager.Instance.Release(this);
+        VfxService.Instance.Release(this);
     }
 
     private void FixedUpdate()

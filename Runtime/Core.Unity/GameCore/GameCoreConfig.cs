@@ -11,7 +11,7 @@ class GameCoreConfig : ScriptableObject
     public static GameCoreConfig Instance()
     {
         if (_cached == null)
-            _cached = AssetManager.Instance.LoadAsset<GameCoreConfig>("Assets/Config/GameCoreConfig.asset");
+            _cached = AssetService.Instance.LoadAsset<GameCoreConfig>("Assets/Config/GameCoreConfig.asset");
         return _cached;
     }
 }

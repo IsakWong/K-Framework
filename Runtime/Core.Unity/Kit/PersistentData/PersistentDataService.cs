@@ -25,7 +25,7 @@ public class ScenePersistentData
     public List<ObjectPersistentData> ObjectDatas = new ();
 }
 
-public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersistentDataService
+public class PersistentDataService : KSingleton<PersistentDataService>, IPersistentDataService
 {
     /// <summary>
     /// 是否启用Base64加密（默认true）
@@ -254,11 +254,11 @@ public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersist
             var fullPath = Path.Combine(GetGameDataPath(), fileName);
             var json = JsonConvert.SerializeObject(data);
             File.WriteAllText(fullPath, json);
-            Debug.Log($"[PersistentDataManager] Newtonsoft 保存: {fullPath}");
+            Debug.Log($"[PersistentDataService] Newtonsoft 保存: {fullPath}");
         }
         catch (Exception e)
         {
-            Debug.LogError($"[PersistentDataManager] Newtonsoft 保存失败: {e.Message}");
+            Debug.LogError($"[PersistentDataService] Newtonsoft 保存失败: {e.Message}");
         }
     }
 
@@ -272,7 +272,7 @@ public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersist
             var fullPath = Path.Combine(GetGameDataPath(), fileName);
             if (!File.Exists(fullPath))
             {
-                Debug.Log($"[PersistentDataManager] 文件不存在: {fullPath}");
+                Debug.Log($"[PersistentDataService] 文件不存在: {fullPath}");
                 return null;
             }
 
@@ -281,7 +281,7 @@ public class PersistentDataManager : KSingleton<PersistentDataManager>, IPersist
         }
         catch (Exception e)
         {
-            Debug.LogError($"[PersistentDataManager] Newtonsoft 加载失败: {e.Message}");
+            Debug.LogError($"[PersistentDataService] Newtonsoft 加载失败: {e.Message}");
             return null;
         }
     }

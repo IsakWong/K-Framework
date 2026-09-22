@@ -8,7 +8,7 @@ public class VfxEmmiter : MonoBehaviour
 }
 
 
-public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
+public class VfxService : PersistentSingleton<VfxService>, IVfxService
 {
     protected override void OnServiceInit()
     {
@@ -17,7 +17,7 @@ public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
 
     public Vfx Get(GameObject origin)
     {
-        var instance = PoolManager.Instance.Get(origin);
+        var instance = PoolService.Instance.Get(origin);
         var vfx = instance.GetComponent<Vfx>();
         if (vfx == null)
         {
@@ -29,12 +29,12 @@ public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
 
     public Vfx Get(Vfx vfx)
     {
-        return PoolManager.Instance.Get(vfx);
+        return PoolService.Instance.Get(vfx);
     }
 
     public Vfx Get(GameObject origin, Vector3 position, Quaternion rotation, Transform parent = null)
     {
-        var instance = PoolManager.Instance.Get(origin, position, rotation, parent);
+        var instance = PoolService.Instance.Get(origin, position, rotation, parent);
         var vfx = instance.GetComponent<Vfx>();
         if (vfx == null)
             vfx = instance.AddComponent<Vfx>();
@@ -43,12 +43,12 @@ public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
 
     public Vfx Get(Vfx prefab, Vector3 position, Quaternion rotation, Transform parent = null)
     {
-        return PoolManager.Instance.Get(prefab, position, rotation, parent);
+        return PoolService.Instance.Get(prefab, position, rotation, parent);
     }
 
     public void Release(Vfx vfx)
     {
-        PoolManager.Instance.Release(vfx);
+        PoolService.Instance.Release(vfx);
     }
 
     /// <summary>
@@ -56,6 +56,6 @@ public class VfxManager : PersistentSingleton<VfxManager>, IVfxService
     /// </summary>
     public void Preload(GameObject prefab, int count)
     {
-        PoolManager.Instance.Preload(prefab, count);
+        PoolService.Instance.Preload(prefab, count);
     }
 }

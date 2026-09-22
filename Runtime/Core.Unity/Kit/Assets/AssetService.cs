@@ -13,7 +13,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
-public class AssetManager : KSingleton<AssetManager>, IAssetService
+public class AssetService : KSingleton<AssetService>, IAssetService
 {
     // Cache for loaded assets to prevent duplicate loading
     private Dictionary<string, AsyncOperationHandle> _loadedHandles = new Dictionary<string, AsyncOperationHandle>();
@@ -30,7 +30,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     /// </summary>
     public T LoadAsset<T>(string path) where T : Object
     {
-        Debug.Log($"[AssetManager] Loading Asset: {path}");
+        Debug.Log($"[AssetService] Loading Asset: {path}");
 #if UNITY_EDITOR
         return AssetDatabase.LoadAssetAtPath<T>(path);
 #elif UNITY_WEBGL
@@ -57,7 +57,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     /// </summary>
     public async Task<T> LoadAssetAsync<T>(string path) where T : Object
     {
-        Debug.Log($"[AssetManager] Loading Asset Async: {path}");
+        Debug.Log($"[AssetService] Loading Asset Async: {path}");
 #if UNITY_EDITOR
         await Task.Yield();
         return AssetDatabase.LoadAssetAtPath<T>(path);
@@ -84,7 +84,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReference");
+            Debug.LogWarning("[AssetService] Invalid AssetReference");
             return null;
         }
 
@@ -93,7 +93,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         string assetPath = AssetDatabase.GUIDToAssetPath(assetReference.AssetGUID);
         if (string.IsNullOrEmpty(assetPath))
         {
-            Debug.LogWarning($"[AssetManager] AssetReference GUID not found: {assetReference.AssetGUID}");
+            Debug.LogWarning($"[AssetService] AssetReference GUID not found: {assetReference.AssetGUID}");
             return null;
         }
         return AssetDatabase.LoadAssetAtPath<T>(assetPath);
@@ -125,7 +125,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReferenceT");
+            Debug.LogWarning("[AssetService] Invalid AssetReferenceT");
             return null;
         }
 
@@ -134,7 +134,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         string assetPath = AssetDatabase.GUIDToAssetPath(assetReference.AssetGUID);
         if (string.IsNullOrEmpty(assetPath))
         {
-            Debug.LogWarning($"[AssetManager] AssetReferenceT GUID not found: {assetReference.AssetGUID}");
+            Debug.LogWarning($"[AssetService] AssetReferenceT GUID not found: {assetReference.AssetGUID}");
             return null;
         }
         return AssetDatabase.LoadAssetAtPath<T>(assetPath);
@@ -170,7 +170,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReference");
+            Debug.LogWarning("[AssetService] Invalid AssetReference");
             return null;
         }
 
@@ -180,7 +180,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         string assetPath = AssetDatabase.GUIDToAssetPath(assetReference.AssetGUID);
         if (string.IsNullOrEmpty(assetPath))
         {
-            Debug.LogWarning($"[AssetManager] AssetReference GUID not found: {assetReference.AssetGUID}");
+            Debug.LogWarning($"[AssetService] AssetReference GUID not found: {assetReference.AssetGUID}");
             return null;
         }
         return AssetDatabase.LoadAssetAtPath<T>(assetPath);
@@ -205,7 +205,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReferenceT");
+            Debug.LogWarning("[AssetService] Invalid AssetReferenceT");
             return null;
         }
 
@@ -215,7 +215,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         string assetPath = AssetDatabase.GUIDToAssetPath(assetReference.AssetGUID);
         if (string.IsNullOrEmpty(assetPath))
         {
-            Debug.LogWarning($"[AssetManager] AssetReferenceT GUID not found: {assetReference.AssetGUID}");
+            Debug.LogWarning($"[AssetService] AssetReferenceT GUID not found: {assetReference.AssetGUID}");
             return null;
         }
         return AssetDatabase.LoadAssetAtPath<T>(assetPath);
@@ -244,7 +244,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReference for instantiate");
+            Debug.LogWarning("[AssetService] Invalid AssetReference for instantiate");
             return null;
         }
 
@@ -253,7 +253,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
         if (prefab == null)
         {
-            Debug.LogWarning($"[AssetManager] Failed to load prefab: {assetPath}");
+            Debug.LogWarning($"[AssetService] Failed to load prefab: {assetPath}");
             return null;
         }
         return parent != null ? Object.Instantiate(prefab, parent) : Object.Instantiate(prefab);
@@ -274,7 +274,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
         {
-            Debug.LogWarning("[AssetManager] Invalid AssetReference for instantiate");
+            Debug.LogWarning("[AssetService] Invalid AssetReference for instantiate");
             return null;
         }
 
@@ -284,7 +284,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
         if (prefab == null)
         {
-            Debug.LogWarning($"[AssetManager] Failed to load prefab: {assetPath}");
+            Debug.LogWarning($"[AssetService] Failed to load prefab: {assetPath}");
             return null;
         }
         return parent != null ? Object.Instantiate(prefab, parent) : Object.Instantiate(prefab);
@@ -370,7 +370,7 @@ public class AssetManager : KSingleton<AssetManager>, IAssetService
     private static T ThrowSyncUnsupported<T>(object key)
     {
         throw new InvalidOperationException(
-            $"[AssetManager] WebGL 下同步访问未预热的 Addressable 资源: {key}。 " +
+            $"[AssetService] WebGL 下同步访问未预热的 Addressable 资源: {key}。 " +
             "请在启动或关卡 Loading 阶段用 LoadAssetAsync / LoadAssetAsync&lt;T&gt;(AssetReference) 提前加载它，再同步读取缓存。");
     }
 

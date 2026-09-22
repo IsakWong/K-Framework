@@ -247,9 +247,9 @@ public class UnityUnit : MonoBehaviour, IUnitHost, IPoolable
         if (Core != null && Core.PreventDestroy) return;
 
         // Only recycle if the subclass opts in AND the instance came from a pool
-        if (Recyclable && PoolManager.Instance != null && PoolManager.Instance.IsPooled(gameObject))
+        if (Recyclable && PoolService.Instance != null && PoolService.Instance.IsPooled(gameObject))
         {
-            PoolManager.Instance.Release(gameObject);
+            PoolService.Instance.Release(gameObject);
         }
         else
         {
@@ -314,11 +314,11 @@ public class UnityUnit : MonoBehaviour, IUnitHost, IPoolable
     {
         var socketTransform = GetSocketTransform(socket);
 
-        // Use VfxManager (pool-backed) if available, fallback to raw Instantiate
+        // Use VfxService (pool-backed) if available, fallback to raw Instantiate
         Vfx visual;
-        if (VfxManager.Instance != null)
+        if (VfxService.Instance != null)
         {
-            visual = VfxManager.Instance.Get(visualPrefab, socketTransform.position, socketTransform.rotation, socketTransform);
+            visual = VfxService.Instance.Get(visualPrefab, socketTransform.position, socketTransform.rotation, socketTransform);
         }
         else
         {

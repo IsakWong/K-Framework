@@ -13,7 +13,7 @@ namespace Framework.Foundation
     ///   - InitializeSingleton：场景版本永远优先——如已有 auto-created bare instance，销毁它，用场景的替换
     ///   - DontDestroyOnLoad：跨场景存活
     ///
-    /// 适用于 CanvasInstance、CameraInstance（场景配置）、UIManager、SoundManager（自动创建）等所有跨场景单例。
+    /// 适用于 CanvasInstance、CameraInstance（场景配置）、UIService、SoundService（自动创建）等所有跨场景单例。
     /// </summary>
     public class PersistentSingleton<T> : MonoBehaviour, IService where T : Component
     {

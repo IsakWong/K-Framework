@@ -29,7 +29,7 @@ public class RandomAudioClip : MonoBehaviour
         if (mAudios == null || mAudios.Count == 0) return;
 
         var clip = mAudios.RandomAccess();
-        var sb = SoundManager.Instance.CreateSoundBuilder();
+        var sb = SoundService.Instance.CreateSoundBuilder();
 
         if (Is3D)
             sb.With3DPosition(transform.position);

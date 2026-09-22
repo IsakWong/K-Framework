@@ -98,10 +98,10 @@ public class GameCoreProxy : MonoBehaviour
     /// <summary>
     /// 加载新场景的协程接口
     /// </summary>
-    [Obsolete("Use SceneManager.Instance.LoadSceneCoroutine() instead")]
+    [Obsolete("Use SceneService.Instance.LoadSceneCoroutine() instead")]
     public IEnumerator LoadNextSceneCoroutine(AssetReference NextLevel, ScenePersistentData persistentData = null)
     {
-        yield return SceneManager.Instance.LoadSceneCoroutine(NextLevel, persistentData);
+        yield return SceneService.Instance.LoadSceneCoroutine(NextLevel, persistentData);
     }
 
 }

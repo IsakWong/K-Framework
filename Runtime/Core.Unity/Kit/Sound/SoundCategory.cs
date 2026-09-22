@@ -29,7 +29,7 @@ public class SoundCategory : ScriptableObject
     [Tooltip("每多一个并发实例的音量衰减（线性），如 0.15 表示第 2 个实例 -0.15")]
     public float volumeDecayPerInstance = 0f;
 
-    [Tooltip("标记为高频音效（受 SoundManager.maxSoundInstances 全局上限限制）")]
+    [Tooltip("标记为高频音效（受 SoundService.maxSoundInstances 全局上限限制）")]
     public bool frequentSound;
 
     [Header("Variation")]

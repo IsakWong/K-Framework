@@ -10,7 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-public class DebugManager : PersistentSingleton<DebugManager>, IDebugService
+public class DebugService : PersistentSingleton<DebugService>, IDebugService
 {
     private GameObject DebugPanelInstance;
     

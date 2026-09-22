@@ -7,9 +7,9 @@ using UnityEngine;
 using UnityEngine.Audio;
 
 
-public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
+public class SoundService : PersistentSingleton<SoundService>, ISoundService
 {
-    // ─── SFX Pool (via PoolManager) ───
+    // ─── SFX Pool (via PoolService) ───
     private readonly List<SoundEmitter> activeSoundEmitters = new();
     public readonly LinkedList<SoundEmitter> FrequentSoundEmitters = new();
 
@@ -133,7 +133,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
 
     public SoundEmitter Get()
     {
-        var emitter = PoolManager.Instance.Get(soundEmitterPrefab);
+        var emitter = PoolService.Instance.Get(soundEmitterPrefab);
         emitter.OnFinished = HandleEmitterFinished;
         activeSoundEmitters.Add(emitter);
         return emitter;
@@ -146,7 +146,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
             FrequentSoundEmitters.Remove(soundEmitter.Node);
 
         activeSoundEmitters.Remove(soundEmitter);
-        PoolManager.Instance.Release(soundEmitter);
+        PoolService.Instance.Release(soundEmitter);
     }
 
     public void StopAll()
@@ -164,7 +164,7 @@ public class SoundManager : PersistentSingleton<SoundManager>, ISoundService
     {
         soundEmitterPrefab = GameCoreConfig.Instance().DefaultSoundEmitter.GetComponent<SoundEmitter>();
         if (poolPreloadCount > 0)
-            PoolManager.Instance.Preload(soundEmitterPrefab, poolPreloadCount);
+            PoolService.Instance.Preload(soundEmitterPrefab, poolPreloadCount);
     }
 
     private void HandleEmitterFinished(SoundEmitter emitter)

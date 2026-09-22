@@ -8,19 +8,19 @@ using UnityEngine;
 /// 
 /// Usage:
 ///   // Get from pool (auto-creates pool if needed)
-///   var enemy = PoolManager.Instance.Get(enemyPrefab, spawnPos, Quaternion.identity);
-///   var vfx   = PoolManager.Instance.Get&lt;Vfx&gt;(vfxPrefab, pos, rot);
+///   var enemy = PoolService.Instance.Get(enemyPrefab, spawnPos, Quaternion.identity);
+///   var vfx   = PoolService.Instance.Get&lt;Vfx&gt;(vfxPrefab, pos, rot);
 ///
 ///   // Return to pool
-///   PoolManager.Instance.Release(enemy);
+///   PoolService.Instance.Release(enemy);
 ///
 ///   // Pre-warm
-///   PoolManager.Instance.Preload(bulletPrefab, 50);
+///   PoolService.Instance.Preload(bulletPrefab, 50);
 ///
 ///   // Via ServiceLocator
 ///   ServiceLocator.Get&lt;IPoolService&gt;().Get(prefab, pos, rot);
 /// </summary>
-public class PoolManager : PersistentSingleton<PoolManager>, IPoolService
+public class PoolService : PersistentSingleton<PoolService>, IPoolService
 {
     [SerializeField, Tooltip("Default max inactive objects per pool")]
     private int _defaultMaxSize = 100;
@@ -227,7 +227,7 @@ public class PoolManager : PersistentSingleton<PoolManager>, IPoolService
     public string GetStatistics()
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"[PoolManager] {_pools.Count} pools, {_instanceToPool.Count} tracked instances");
+        sb.AppendLine($"[PoolService] {_pools.Count} pools, {_instanceToPool.Count} tracked instances");
         foreach (var kvp in _pools)
         {
             var pool = kvp.Value;

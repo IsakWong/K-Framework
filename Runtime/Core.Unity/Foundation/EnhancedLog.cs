@@ -35,7 +35,7 @@ public class LogFileConfig
 ///
 /// <example>
 /// // 基本用法
-/// EnhancedLog.Info("SceneManager", "场景加载完成: MainMenu");
+/// EnhancedLog.Info("SceneService", "场景加载完成: MainMenu");
 /// EnhancedLog.Warning("Sound", "AudioClip 为空，跳过播放");
 /// EnhancedLog.Error("Network", $"HTTP 请求失败: {statusCode}");
 ///
@@ -43,7 +43,7 @@ public class LogFileConfig
 /// EnhancedLog.SetGlobalLevel(LogLevel.Warning);
 ///
 /// // 单独放开某个模块的日志
-/// EnhancedLog.SetTagLevel("SceneManager", LogLevel.Debug);
+/// EnhancedLog.SetTagLevel("SceneService", LogLevel.Debug);
 ///
 /// // 向后兼容
 /// EnhancedLog.Log("旧代码仍然工作");

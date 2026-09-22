@@ -38,10 +38,10 @@ namespace Framework.Testing
                 floatValue = 3.14f,
                 strValue = "Hello"
             };
-            PersistentDataManager.Instance.SaveData(testKey, data);
+            PersistentDataService.Instance.SaveData(testKey, data);
 
             // 2. 加载数据并验证
-            var loaded = PersistentDataManager.Instance.LoadData<TestData>(testKey);
+            var loaded = PersistentDataService.Instance.LoadData<TestData>(testKey);
             Debug.Assert(loaded != null, "Loaded data should not be null");
             Debug.Assert(loaded.intValue == 42, "intValue should be 42");
             Debug.Assert(Mathf.Approximately(loaded.floatValue, 3.14f), "floatValue should be 3.14");
@@ -49,10 +49,10 @@ namespace Framework.Testing
 
             // 3. 修改并保存
             loaded.intValue = 100;
-            PersistentDataManager.Instance.SaveData(testKey, loaded);
+            PersistentDataService.Instance.SaveData(testKey, loaded);
 
             // 4. 再次加载验证
-            var loaded2 = PersistentDataManager.Instance.LoadData<TestData>(testKey);
+            var loaded2 = PersistentDataService.Instance.LoadData<TestData>(testKey);
             Debug.Assert(loaded2.intValue == 100, "intValue should be updated to 100");
         }
 

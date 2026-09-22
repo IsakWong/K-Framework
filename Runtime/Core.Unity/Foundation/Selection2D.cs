@@ -35,7 +35,7 @@ public class RectangleSelection : Selection2D
     
     public override void DrawGizmos(Vector3 pos, Vector2 direction, float duration = -1, Color? color = null)
     {
-        DebugManager.DrawRectangle(pos, Size, direction, duration, color);
+        DebugService.DrawRectangle(pos, Size, direction, duration, color);
     }
 }
 
@@ -54,7 +54,7 @@ public class CircleSelection : Selection2D
     
     public override void DrawGizmos(Vector3 pos, Vector2 direction, float duration = -1, Color? color = null)
     {
-        DebugManager.DrawCircle(pos, Radius, duration, color);
+        DebugService.DrawCircle(pos, Radius, duration, color);
     }
 }
 
@@ -75,7 +75,7 @@ public class SectorSelection : Selection2D
     
     public override void DrawGizmos(Vector3 pos, Vector2 direction, float duration = -1, Color? color = null)
     {
-        DebugManager.DrawWedge(pos, direction, Radius, Angle, duration, color);
+        DebugService.DrawWedge(pos, direction, Radius, Angle, duration, color);
     }
 }
 

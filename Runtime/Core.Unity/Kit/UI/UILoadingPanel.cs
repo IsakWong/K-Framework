@@ -163,7 +163,7 @@ public class UILoadingPanel : UIPanel
             yield return new WaitForSeconds(remainTime);
         if (autoHideUI)
         {
-            PlayHideAnimation(() => UIManager.Instance.CloseAsync(this).Forget());
+            PlayHideAnimation(() => UIService.Instance.CloseAsync(this).Forget());
         }
         yield return null;
     }

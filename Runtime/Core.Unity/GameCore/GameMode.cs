@@ -183,9 +183,9 @@ public class GameMode : MonoBehaviour
     /// </summary>
     public virtual IEnumerator OnModeStart()
     {
-        if (SceneMusic != null && SoundManager.Instance.CurrentMusicClip != SceneMusic)
+        if (SceneMusic != null && SoundService.Instance.CurrentMusicClip != SceneMusic)
         {
-            SoundManager.Instance.PlayMusic(SceneMusic);
+            SoundService.Instance.PlayMusic(SceneMusic);
         }
         
         EnhancedLog.Info("GameMode", $"{gameObject.name} {GetType().Name} OnModeStart");
@@ -279,8 +279,8 @@ public class GameMode : MonoBehaviour
         string sceneName = gameObject.scene.name;
         EnhancedLog.Debug("GameMode", $"Loading persistent data for scene: {sceneName}");
         
-        // 尝试从 PersistentDataManager 加载场景数据
-        // 注意: 你需要确保 PersistentDataManager 有相应的加载方法
+        // 尝试从 PersistentDataService 加载场景数据
+        // 注意: 你需要确保 PersistentDataService 有相应的加载方法
         // 这里暂时注释掉,子类可以重写这个方法
         
         // 通知新游戏
@@ -312,7 +312,7 @@ public class GameMode : MonoBehaviour
         isSaving = true;
         EnhancedLog.Info("GameMode", $"Saving persistent data for scene: {gameObject.scene.name}");
 
-        var handle = PersistentDataManager.Instance.SaveScene();
+        var handle = PersistentDataService.Instance.SaveScene();
         yield return handle;
         
         if (handle.Current is ScenePersistentData savedData)
