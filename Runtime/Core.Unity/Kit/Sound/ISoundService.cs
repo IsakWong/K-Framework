@@ -27,6 +27,8 @@ public interface ISoundService
 
     void PlayMusic(AudioClip clip, SoundCategory category = null, float volumeScale = 1.0f);
     void PopTrack();
+    /// <summary>音乐音高（1 = 原速，可运行时补间，如子弹时间慢放）</summary>
+    float MusicPitch { get; set; }
 
     // ─── Mixer 控制 ───
 

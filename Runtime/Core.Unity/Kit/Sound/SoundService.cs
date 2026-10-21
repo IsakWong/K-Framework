@@ -201,8 +201,23 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
     /// <summary>当前正在播放的音乐片段（用于外部判断是否需要切换）</summary>
     public AudioClip CurrentMusicClip => currentMusic ? currentMusic.clip : null;
     private readonly LinkedList<AudioSource> musicStack = new();
+    private float musicPitch = 1f;
     [SerializeField] private AudioMixerGroup musicMixerGroup;
     public AudioMixerGroup MusicMixerGroup { get => musicMixerGroup; set => musicMixerGroup = value; }
+
+    /// <summary>当前音乐播放音高（1 = 原速，可运行时补间，如子弹时间慢放）</summary>
+    public float MusicPitch
+    {
+        get => musicPitch;
+        set
+        {
+            musicPitch = value;
+            foreach (var source in musicStack)
+            {
+                if (source) source.pitch = value;
+            }
+        }
+    }
 
     public void Clear()
     {
@@ -250,6 +265,7 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
         currentMusic.outputAudioMixerGroup = category?.mixerGroup ?? musicMixerGroup;
         currentMusic.loop = true;
         currentMusic.volume = 0;
+        currentMusic.pitch = musicPitch;
         currentMusic.bypassListenerEffects = true;
         currentMusic.Play();
         musicStack.AddLast(currentMusic);
