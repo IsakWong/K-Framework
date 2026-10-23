@@ -94,25 +94,6 @@ public abstract class IGameModeEventListener : MonoBehaviour
     #region Game State Callbacks
 
     /// <summary>
-    /// 当玩家死亡时调用
-    /// </summary>
-    /// <param name="player">死亡的玩家角色</param>
-    /// <param name="killer">造成死亡的单位（可能为null）</param>
-    public virtual void OnPlayerDeath(UnitBase player, UnitBase killer = null)
-    {
-        Debug.Log($"[GameModeComponent] {GetType().Name}: Player died - {player.Name}");
-    }
-
-    /// <summary>
-    /// 当玩家重生时调用
-    /// </summary>
-    /// <param name="player">重生的玩家角色</param>
-    public virtual void OnPlayerRespawn(UnitBase player)
-    {
-        Debug.Log($"[GameModeComponent] {GetType().Name}: Player respawned - {player.Name}");
-    }
-
-    /// <summary>
     /// 当关卡重新开始时调用
     /// </summary>
     public virtual void OnLevelRestart()

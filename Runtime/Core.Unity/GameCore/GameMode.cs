@@ -374,40 +374,6 @@ public class GameMode : MonoBehaviour
     }
 
     /// <summary>
-    /// 玩家死亡时调用
-    /// </summary>
-    protected virtual void OnPlayerDeath(UnitBase player, UnitBase killer = null)
-    {
-        EnhancedLog.Info("GameMode", $"Player died: {player?.Name ?? "null"}");
-        
-        // 通知所有组件
-        foreach (var component in modeComponents)
-        {
-            if (component != null)
-            {
-                component.OnPlayerDeath(player, killer);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 玩家重生时调用
-    /// </summary>
-    protected virtual void OnPlayerRespawn(UnitBase player)
-    {
-        EnhancedLog.Info("GameMode", $"Player respawned: {player?.Name ?? "null"}");
-        
-        // 通知所有组件
-        foreach (var component in modeComponents)
-        {
-            if (component != null)
-            {
-                component.OnPlayerRespawn(player);
-            }
-        }
-    }
-
-    /// <summary>
     /// 关卡完成时调用
     /// </summary>
     protected virtual void OnLevelComplete()

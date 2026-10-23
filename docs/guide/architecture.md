@@ -10,7 +10,7 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 │         GameMode 子类 / Controller 子类 / 业务逻辑                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    FrameworkExt Layer（游戏扩展层）                     │
-│   UnitBase · UnitModule · PlayerModule · VfxService · HUD · Camera  │
+│   PlayerModule · VfxService · HUD · Camera                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │                     Module Layer（功能模块层）                          │
 │   UIService · SoundService · AssetService · ConfigService           │

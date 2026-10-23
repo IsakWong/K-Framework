@@ -258,32 +258,9 @@ public static class Utility
 
         return _canvas.worldCamera;
     }
-    public static Vector3 DirectionBetweenUnit(this UnityUnit a, UnityUnit b, bool ignoreY = false)
-    {
-        var delta = b.WorldPosition - a.WorldPosition;
-        if (ignoreY)
-        {
-            delta.y = 0;
-        }
-
-        delta.Normalize();
-        return delta;
-    }
-
     public static float DistanceBetweenPosition(Vector3 a, Vector3 b, bool ignoreY = true)
     {
         var delta = a - b;
-        if (ignoreY)
-        {
-            delta.y = 0;
-        }
-
-        return delta.magnitude;
-    }
-
-    public static float DistanceBetweenGameUnit(this UnityUnit a, UnityUnit b, bool ignoreY = true)
-    {
-        var delta = a.WorldPosition - b.WorldPosition;
         if (ignoreY)
         {
             delta.y = 0;

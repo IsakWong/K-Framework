@@ -91,7 +91,6 @@ public class XxxTests
 | `ConfigService` | 需要 ScriptableObject 资源 | PlayMode |
 | `KCoroutine / CoroutineManager` | ✅ 已有 EditMode 测试 (KCoroutineTests.cs) | - |
 | `BehaviorTree` | 复杂决策树系统 | 需专项测试设计 |
-| `UnitBase / UnitModule` | 依赖 GameObject/场景 | PlayMode |
 | `KConstraint` | 依赖 Transform | PlayMode |
 | `EnhancedLog` | 日志系统 | 可做 EditMode 输出验证 |
 

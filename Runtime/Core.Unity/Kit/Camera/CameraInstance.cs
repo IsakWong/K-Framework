@@ -66,14 +66,6 @@ public class CameraInstance : PersistentSingleton<CameraInstance>, ICameraServic
         // 进行射线检测
         var ray = new Ray(BehaviourInstance.transform.position, direction.normalized); // 可自定义 LayerMask
         {
-            var hits = Physics.RaycastAll(ray, distance + raycastDistanceBuffer, LayerMask.GetMask("EnvUnit"), QueryTriggerInteraction.Collide);
-            foreach (var hit in hits)
-            {
-                // 获取碰撞对象的 MeshRenderer
-                var env = hit.collider.GetComponent<UnityUnit>();
-            }
-        }
-        {
             var hits = Physics.RaycastAll(ray, distance + raycastDistanceBuffer, LayerMask.GetMask("Wall"), QueryTriggerInteraction.Collide);
             foreach (var hit in hits)
             {

@@ -46,15 +46,6 @@ public static class VfxAPI
         return effectBase;
     }
 
-    public static Vfx CreateVisualEffectAtUnit(GameObject source, UnityUnit target, Vector3 direction,
-        Vector3 offset)
-    {
-        var effectBase = VfxService.Instance.Get(source, offset,
-            direction == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(direction),
-            target.transform);
-        return effectBase;
-    }
-
     public static Vfx CreateVisualEffect(GameObject source, Vector3 position, Vector3 direction)
     {
         var effectBase = VfxService.Instance.Get(source, position, Quaternion.LookRotation(direction));

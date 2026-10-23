@@ -86,7 +86,7 @@ KFramework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 │         GameMode 子类 / Controller 子类 / 业务逻辑                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    FrameworkExt Layer (游戏扩展层)                     │
-│   UnitBase · UnitModule · PlayerModule · VfxService · HUD · Camera  │
+│   PlayerModule · VfxService · HUD · Camera                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │                     Module Layer (功能模块层)                          │
 │   UIService · SoundService · AssetService · ConfigService           │
@@ -188,9 +188,6 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 | 模块 | 类 | 说明 |
 |---|---|---|
-| **Unit** | `UnitBase` | 游戏实体基类：完整生命周期 (Spawn→Alive→Die→Dead→Delete)、组件系统、Socket 挂点 |
-| **Unit** | `UnitModule` | Unit 全局管理器：延迟生命周期队列、时间缩放 |
-| **Unit** | `UnitComponent` | Unit 组件基类 |
 | **Player** | `ControllerBase` | 玩家输入控制器，内置 CommandQueue |
 | **Player** | `PlayerModule` | 玩家控制器注册管理 |
 | **Vfx** | `VfxService` / `IVfxService` | 特效对象池管理 |

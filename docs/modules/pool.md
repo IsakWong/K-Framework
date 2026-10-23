@@ -90,14 +90,3 @@ using (var dict = DictionaryPool<string, int>.Get())
     // 自动回池
 }
 ```
-
-## UnitBase 集成
-
-`UnitBase` 通过 `CanRecycle` 支持 opt-in 对象池回收：
-
-```csharp
-public class MyUnit : UnitBase
-{
-    public override bool CanRecycle => true; // 允许回池
-}
-```

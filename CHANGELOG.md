@@ -3,6 +3,14 @@
 本文件记录 KFramework 的所有重要变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/)，
 版本号遵循 [语义化版本](https://semver.org/)。
 
+## [Unreleased]
+
+### 破坏性变更
+- **移除 Unit 系统** — 删除 `UnitBase`、`UnitModule`、`UnityUnit`、`IUnitHost`、`IGameplayLifeCycle`、`UnitLifecycleState` 及其生命周期队列 / 全局时间缩放 / `UnitComponent` 残留。实体逻辑由业务层自有内核承担，表现宿主直接使用 `MonoBehaviour` 生命周期。
+- **移除 `Utility.DirectionBetweenUnit` / `DistanceBetweenGameUnit`、`VfxAPI.CreateVisualEffectAtUnit`** — 三个以 `UnityUnit` 为接收者的扩展/重载。
+- **移除 `GameMode.OnPlayerDeath` / `OnPlayerRespawn` 与 `IGameModeEventListener` 同名回调** — 无调用方的业务钩子。
+- **移除编辑器工具 `UnitMonitorPage`、`UnitBaseEditor`、运行期 `UnitDebugOverlay`** 及 `docs/modules/unit.md`。
+
 ## [2.0.0] - 2026-09-20
 
 ### 破坏性变更

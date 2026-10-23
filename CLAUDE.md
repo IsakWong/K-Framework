@@ -13,7 +13,7 @@ Foundation → Core → Module → FrameworkExt（游戏扩展层）
 - **Foundation**：`KSingleton<T>`、`PersistentSingleton<T>`、`ServiceLocator`、`EnhancedLog`、`KTimer`
 - **Core**：`KGameCore`（全局单例，Module 容器）、`GameMode`（场景生命周期）、`TModule<T>`（可热插拔模块）、`KSignal`/`Subscriber`、`KCoroutine`、FSM、BehaviorTree、`Command`、`KActionBase`
 - **Module**：`UIService`、`SoundService`、`AssetService`、`ConfigService`、`SceneService`、`EventBus`、`PersistentDataService`、`SettingsService`、`DebugService`
-- **FrameworkExt**：`UnitBase`/`UnitModule`、`ControllerBase`/`PlayerModule`、`VfxService`、`HUDBase`、`CameraInstance`
+- **FrameworkExt**：`ControllerBase`/`PlayerModule`、`VfxService`、`HUDBase`、`CameraInstance`
 
 ## 关键约定
 
@@ -36,17 +36,6 @@ KGameCore.SystemAt<T>()       // 获取，不存在返回 null
 // TModule<T>：Awake() 自动注册到 KGameCore
 // GameMode：Awake→Init→Start→End 场景生命周期
 ```
-
-### Unit 生命周期
-
-```
-None → Spawning → Alive → Dying → Dead → Deleting → Deleted
-```
-
-- `unit.Spawn()` / `unit.Die()` / `unit.Delete()` 请求，`UnitModule` 批量处理
-- 覆写 `OnSpawn()`、`OnDie()` 添加逻辑；`OnLogic()` 每 FixedUpdate 调用
-- `UnitComponent` 挂载在 `__Components__` 子 Transform，`unit.GetUnitComponent<T>()` 获取
-- 操作前检查 `unit.IsAlive`，禁止直接 `Destroy()`
 
 ### UI 系统
 
@@ -86,7 +75,7 @@ Runtime/          KFramework.asmdef（运行时主程序集；包含下述 Core 
     GameCore/                 原内核语义：KGameCore / GameMode / GameCoreProxy / TModule / ModuleLocator
     Foundation/               KSingleton / PersistentSingleton / ServiceLocator / EnhancedLog / Variant 等引擎件
     Action/ Attributes/ EventBus/ Subscriber/ ObjectPool/ Coroutine/ Cmd/     按系统原目录
-    Kit/                      功能模块聚合（UI / Sound / Asset / Camera / HUD / Unit / Player / Scene / Config / Debug / PersistentData / Settings / Vfx）
+    Kit/                      功能模块聚合（UI / Sound / Asset / Camera / HUD / Player / Scene / Config / Debug / PersistentData / Settings / Vfx）
     Utils/ Version/ Extensions/
     ThirdParty/               依赖引擎的内嵌三方（各自 namespace / asmdef 不变）
       Fsm/                    UnityHFSM（Inspiaaa，namespace FSM）

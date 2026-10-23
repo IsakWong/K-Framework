@@ -8,8 +8,8 @@
 /// <example>
 /// public struct PlayerDiedEvent : IEvent
 /// {
-///     public UnitBase Player;
-///     public UnitBase Killer;
+///     public int PlayerId;
+///     public int KillerId;
 /// }
 ///
 /// public struct ScoreChangedEvent : IEvent
