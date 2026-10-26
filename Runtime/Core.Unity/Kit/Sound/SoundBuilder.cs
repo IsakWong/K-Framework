@@ -59,19 +59,39 @@ public class SoundBuilder
         return this;
     }
 
+    private string throttleKey;
+    private float throttleCooldown;
+
+    /// <summary>
+    /// 同名逻辑音效的最小间隔（秒）：窗口内同 key 只放行一次，被挡下的请求直接丢弃。
+    /// 多条目随机变体（受击、打断）共用同一个 key，避免一次事件叠成爆音。
+    /// </summary>
+    public SoundBuilder Throttle(string key, float cooldown)
+    {
+        throttleKey = key;
+        throttleCooldown = cooldown;
+        return this;
+    }
+
     /// <summary>
     /// 播放音效。category 提供 Mixer 路由 + 并发控制 + AudioSource 默认参数。
     /// 为 null 时使用 SoundService.DefaultSoundData 且不限流。
     /// </summary>
     public SoundEmitter Play(SoundCategory category = null)
     {
+        // 先过分类限流（纯检查），再消耗 throttle 窗口，避免被分类挡下的请求白占冷却。
         if (!soundManager.CanPlaySound(category))
+            return null;
+
+        if (!soundManager.TryPassThrottle(throttleKey, throttleCooldown))
             return null;
 
         // Resolve AudioSource parameters: category.defaults → fallback to DefaultSoundData
         SoundData audioParams = category != null ? category.defaults : soundManager.DefaultSoundData;
 
         var soundEmitter = soundManager.Get();
+        if (soundEmitter == null) return null;
+
         soundEmitter.Initialize(audioParams);
         soundEmitter.Category = category;
 

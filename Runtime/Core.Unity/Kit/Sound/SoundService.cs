@@ -25,15 +25,23 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
     private readonly Dictionary<int, int> _activeCountByCategory = new();
     private readonly Dictionary<int, float> _lastPlayTimeByCategory = new();
 
+    private bool _poolInitialized;
+
     protected override void Awake()
     {
         base.Awake();
-        InitializePool();
+        EnsurePoolInitialized();
+        if (!AudioListener)
+        {
+            // 场景里已有 AudioListener（如相机上的）时直接复用，避免重复监听器
+            AudioListener = FindAnyObjectByType<AudioListener>();
+        }
         if (!AudioListener)
         {
             var listenerObject = new GameObject("[AudioListener]");
             AudioListener = listenerObject.AddComponent<AudioListener>();
-            DontDestroyOnLoad(listenerObject);
+            // 挂在服务节点下，随单例一起销毁
+            listenerObject.transform.SetParent(transform, false);
         }
     }
 
@@ -92,6 +100,27 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
         return true;
     }
 
+    // ─── Per-Key Throttle ───
+    // Key = 调用方给的逻辑音效名（如 "damage" / "interrupt"），而不是 Clip：
+    // 同一逻辑音效常常随机取多条变体，按 Clip 限流挡不住「一次事件 5 条全响」。
+    private readonly Dictionary<string, float> _throttleLastPlay = new();
+
+    /// <summary>
+    /// 同名逻辑音效的最小间隔检查：窗口内同 key 只放行一次，用于防爆音。
+    /// 返回 true 表示放行，同时记录本次时间。
+    /// </summary>
+    public bool TryPassThrottle(string key, float cooldown)
+    {
+        if (string.IsNullOrEmpty(key) || cooldown <= 0f) return true;
+
+        if (_throttleLastPlay.TryGetValue(key, out float lastTime)
+            && Time.unscaledTime - lastTime < cooldown)
+            return false;
+
+        _throttleLastPlay[key] = Time.unscaledTime;
+        return true;
+    }
+
     /// <summary>
     /// 计算并发衰减后的实际音量
     /// </summary>
@@ -133,6 +162,16 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
 
     public SoundEmitter Get()
     {
+        // 正常情况下启动预热已确保池就绪；这里兜底一次，避免 Awake 早于预热时漏初始化。
+        EnsurePoolInitialized();
+
+        if (soundEmitterPrefab == null)
+        {
+            Debug.LogError("[SoundService] 音效池未就绪：GameCoreConfig.DefaultSoundEmitter 未配置，" +
+                           "或 Boot 批次（Assets/Config/GameCoreConfig.asset）尚未加载。");
+            return null;
+        }
+
         var emitter = PoolService.Instance.Get(soundEmitterPrefab);
         emitter.OnFinished = HandleEmitterFinished;
         activeSoundEmitters.Add(emitter);
@@ -160,11 +199,22 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
         ListPool<SoundEmitter>.Release(temp);
     }
 
-    private void InitializePool()
+    /// <summary>
+    /// 初始化音效池。启动期核心配置可能尚未预热（Awake 早于预热），此时安全跳过；
+    /// 预热完成后由启动流程再次调用。幂等。
+    /// </summary>
+    public void EnsurePoolInitialized()
     {
-        soundEmitterPrefab = GameCoreConfig.Instance().DefaultSoundEmitter.GetComponent<SoundEmitter>();
+        if (_poolInitialized) return;
+
+        var config = GameCoreConfig.Instance();
+        if (config == null || config.DefaultSoundEmitter == null) return;
+
+        soundEmitterPrefab = config.DefaultSoundEmitter.GetComponent<SoundEmitter>();
         if (poolPreloadCount > 0)
             PoolService.Instance.Preload(soundEmitterPrefab, poolPreloadCount);
+
+        _poolInitialized = true;
     }
 
     private void HandleEmitterFinished(SoundEmitter emitter)

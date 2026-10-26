@@ -28,7 +28,7 @@ namespace Framework.Config
                 name = (typeof(T).Name);
             if (!AllConfigs.ContainsKey(name))
             {
-                var asset = AssetService.Instance.LoadAsset<T>($"{ConfigPrefix}{name}.asset");
+                var asset = AssetService.Instance.Load<T>($"{ConfigPrefix}{name}.asset");
                 AllConfigs[name] = asset;
                 return asset;
             }

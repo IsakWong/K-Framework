@@ -13,6 +13,12 @@ public class UIService : PersistentSingleton<UIService>, IUIService
     /// </summary>
     public static string UIPrefix = "Assets/UI/";
 
+    /// <summary>
+    /// 为 true 时面板只从已加载的缓存读取，未命中直接报错。
+    /// 适合"所有 UI 都随语义批次预加载"的项目；默认关闭以保持通用服务的异步行为。
+    /// </summary>
+    public static bool RequirePreloadedPanels = false;
+
     private readonly List<UIPanel> _uiPanels = new();
 
     // Fullscreen：严格栈式，只有栈顶可见。First = 栈顶
@@ -99,7 +105,23 @@ public class UIService : PersistentSingleton<UIService>, IUIService
         }
 
         var assetPath = !string.IsNullOrEmpty(path) ? path : $"{UIPrefix}{type.Name}.prefab";
-        var prefab = await AssetService.Instance.LoadAssetAsync<GameObject>(assetPath);
+
+        GameObject prefab;
+        if (RequirePreloadedPanels)
+        {
+            // 严格模式：面板必须随阶段清单（AssetManifest）预热。
+            // 未命中说明清单漏了，直接报错而不是悄悄异步补加载。
+            if (!AssetService.Instance.TryLoad<GameObject>(assetPath, out prefab))
+            {
+                Debug.LogError($"[UIService] 面板未预热，请把 {assetPath} 加入对应阶段的 AssetManifest.Paths。");
+                return null;
+            }
+        }
+        else
+        {
+            prefab = await AssetService.Instance.LoadAsync<GameObject>(assetPath);
+        }
+
         if (prefab == null)
         {
             Debug.LogError($"[UIService] 未找到 UI 预制体：{assetPath}");
