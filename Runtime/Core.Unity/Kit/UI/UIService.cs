@@ -9,9 +9,10 @@ using UnityEngine;
 public class UIService : PersistentSingleton<UIService>, IUIService
 {
     /// <summary>
-    /// UI 预制体路径前缀。业务在 GameCore.OnInit() 中设置。
+    /// 面板预制体加载器（类型 → 预制体）。业务在 GameCore.OnInit() 中注入。
+    /// 面板按加载阶段分目录存放时，路径与类型不再一一对应，由这张表解析。
     /// </summary>
-    public static string UIPrefix = "Assets/UI/";
+    public static Func<Type, UniTask<GameObject>> PanelLoader;
 
     /// <summary>
     /// 为 true 时面板只从已加载的缓存读取，未命中直接报错。
@@ -104,27 +105,37 @@ public class UIService : PersistentSingleton<UIService>, IUIService
                 return panel;
         }
 
-        var assetPath = !string.IsNullOrEmpty(path) ? path : $"{UIPrefix}{type.Name}.prefab";
-
         GameObject prefab;
-        if (RequirePreloadedPanels)
+        if (!string.IsNullOrEmpty(path))
         {
-            // 严格模式：面板必须随阶段清单（AssetManifest）预热。
-            // 未命中说明清单漏了，直接报错而不是悄悄异步补加载。
-            if (!AssetService.Instance.TryLoad<GameObject>(assetPath, out prefab))
+            if (RequirePreloadedPanels)
             {
-                Debug.LogError($"[UIService] 面板未预热，请把 {assetPath} 加入对应阶段的 AssetManifest.Paths。");
-                return null;
+                // 严格模式：面板必须随阶段清单（AssetManifest）预热。
+                // 未命中说明清单漏了，直接报错而不是悄悄异步补加载。
+                if (!AssetService.Instance.TryLoad<GameObject>(path, out prefab))
+                {
+                    Debug.LogError($"[UIService] 面板未预热，请把 {path} 加入对应阶段的 AssetManifest.Paths。");
+                    return null;
+                }
             }
+            else
+            {
+                prefab = await AssetService.Instance.LoadAsync<GameObject>(path);
+            }
+        }
+        else if (PanelLoader != null)
+        {
+            prefab = await PanelLoader(type);
         }
         else
         {
-            prefab = await AssetService.Instance.LoadAsync<GameObject>(assetPath);
+            Debug.LogError($"[UIService] 未注入 PanelLoader，无法解析面板：{type.Name}");
+            return null;
         }
 
         if (prefab == null)
         {
-            Debug.LogError($"[UIService] 未找到 UI 预制体：{assetPath}");
+            Debug.LogError($"[UIService] 未找到 UI 预制体：{type.Name}");
             return null;
         }
 
