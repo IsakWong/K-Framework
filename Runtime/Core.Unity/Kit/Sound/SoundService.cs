@@ -31,11 +31,32 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
     {
         base.Awake();
         EnsurePoolInitialized();
-        if (!AudioListener)
+        EnsureAudioListener();
+    }
+
+    /// <summary>
+    /// 保证有且只有一个监听器，且它不会被随后的销毁带走。
+    ///
+    /// ⚠️ 不能直接用 <c>FindAnyObjectByType</c> 认领场景里的监听器：场景版本的 SoundService 替换旧实例时，
+    /// <see cref="PersistentSingleton{T}"/> 走的是 <c>Destroy(existing.gameObject)</c>，而 Destroy 要等到帧末才执行 ——
+    /// 此刻旧实例的监听器仍然查得到，一旦被认领过来，帧末就随旧宿主一起消失，之后整局都没有监听器
+    /// （表现为 "There are no audio listeners in the scene" 持续刷屏、所有音效静音）。
+    /// 所以这里跳过挂在**另一个** SoundService 下的监听器，自己新建一个。
+    /// </summary>
+    private void EnsureAudioListener()
+    {
+        if (AudioListener) return;
+
+        var listeners = FindObjectsOfType<AudioListener>(true);
+        for (int i = 0; i < listeners.Length; i++)
         {
-            // 场景里已有 AudioListener（如相机上的）时直接复用，避免重复监听器
-            AudioListener = FindAnyObjectByType<AudioListener>();
+            var owner = listeners[i].GetComponentInParent<SoundService>();
+            if (owner != null && owner != this) continue;
+
+            AudioListener = listeners[i];
+            break;
         }
+
         if (!AudioListener)
         {
             var listenerObject = new GameObject("[AudioListener]");
