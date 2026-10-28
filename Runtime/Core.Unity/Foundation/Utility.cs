@@ -519,7 +519,7 @@ public static class Utility
         int hitCount = Physics2D.OverlapCircleNonAlloc(pos, radius, s_Collider2DCache, mask);
         for (int i = 0; i < hitCount; i++)
         {
-            if (s_Collider2DCache[i].TryGetComponent<T>(out T component))
+            if (s_Collider2DCache[i].GetComponentInParent<T>() is T component)
             {
                 if (cond == null || cond(component))
                 {
@@ -541,7 +541,7 @@ public static class Utility
         int hitCount = Physics2D.OverlapBoxNonAlloc(pos, size, angle, s_Collider2DCache, mask);
         for (int i = 0; i < hitCount; i++)
         {
-            if (s_Collider2DCache[i].TryGetComponent<T>(out T component))
+            if (s_Collider2DCache[i].GetComponentInParent<T>() is T component)
             {
                 if (cond == null || cond(component))
                 {
@@ -580,7 +580,7 @@ public static class Utility
         
         for (int i = 0; i < hitCount; i++)
         {
-            if (s_Collider2DCache[i].TryGetComponent<T>(out T component))
+            if (s_Collider2DCache[i].GetComponentInParent<T>() is T component)
             {
                 // 计算从中心点到碰撞体的方向
                 Vector2 toTarget = (Vector2)s_Collider2DCache[i].transform.position - pos;
