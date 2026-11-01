@@ -1,7 +1,7 @@
 # KFramework — Unity 游戏框架
 
 > 面向 Unity 2D/3D 游戏的轻量级模块化游戏框架  
-> **框架版本**: 1.6.0 | **Unity 兼容**: 2021.3+  
+> **框架版本**: 2.0.0 | **Unity 兼容**: 2021.3+  
 > **许可证**: MIT | **包名**: `com.isakwong.kframework`
 
 ---
@@ -28,7 +28,7 @@ https://github.com/isakwong/KFramework.git
 
 指定版本 tag：
 ```
-https://github.com/isakwong/KFramework.git#v1.6.0
+https://github.com/isakwong/KFramework.git#v2.0.0
 ```
 
 ### 方式二：手动安装
@@ -284,6 +284,8 @@ KFramework/                      # UPM 包根目录
 
 | 版本 | 摘要 |
 |---|---|
+| **2.0.0** | UnitBase 纯 C# 化 + UnityUnit 表现宿主（组合式）；UnitComponent 体系废除，改用 IUnitHost 宿主回调 |
+| **1.7.0** | TModule.OnModuleLogic 模块帧逻辑；KTimer 进度属性；KSignal 四参数版本统一命名 |
 | **1.6.0** | 音频系统全面重构 (SoundCategory/SoundData 双层架构 + Mixer API + BGM Ducking)；SoundEmitter 统一 PoolService；UPM 包结构 |
 | **1.5.0** | 通用对象池 (GameObjectPool + PoolService + CSharpPool + 集合池)；UnitBase opt-in 回收 |
 | **1.4.0** | 结构化日志系统 (6 级 + Tag 过滤 + 文件轮转) |
