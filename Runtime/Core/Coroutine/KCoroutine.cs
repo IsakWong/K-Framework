@@ -76,6 +76,10 @@ namespace Framework.Coroutine
             // 执行协程栈中的当前层
             while (_enumeratorStack.Count > 0)
             {
+                // MoveNext 会执行任意用户代码，其中可能同步调用 Stop 把自己停掉（清空栈）
+                if (_isStopped)
+                    return false;
+
                 var currentEnumerator = _enumeratorStack.Peek();
                 
                 if (currentEnumerator.MoveNext())
@@ -95,6 +99,10 @@ namespace Framework.Coroutine
                 }
                 else
                 {
+                    // MoveNext 内部可能已同步 Stop（栈被清空），此时视为已完成
+                    if (_isStopped || _enumeratorStack.Count == 0)
+                        return false;
+
                     // 当前层执行完毕，弹出栈
                     _enumeratorStack.Pop();
                     _current = null;
