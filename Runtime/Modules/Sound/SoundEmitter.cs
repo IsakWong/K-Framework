@@ -100,7 +100,16 @@ public class SoundEmitter : MonoBehaviour, IPoolable
 
     private IEnumerator WaitForSoundToEnd()
     {
-        yield return new WaitWhile(() => audioSource.isPlaying);
+        // 不依赖 AudioSource.isPlaying：池复用后它在部分音频后端会在首帧抖动为 false，
+        // 导致音效刚出声就被判停。改为按 clip 时长（含 pitch 缩放）计时。
+        float duration = 0.5f;
+        if (audioSource.clip != null)
+            duration = audioSource.clip.length / Mathf.Max(0.05f, Mathf.Abs(audioSource.pitch));
+
+        float start = Time.unscaledTime;
+        while (!stopped && Time.unscaledTime - start < duration)
+            yield return null;
+
         Stop();
     }
 
