@@ -59,6 +59,19 @@ public class SoundBuilder
         return this;
     }
 
+    private bool bypassConcurrency;
+
+    /// <summary>
+    /// 跳过分类限流（冷却 / 并发上限 / 频繁音效上限）。
+    /// 用于玩家关键操作音：并发满时不能被命中、受击等反馈音挤掉。
+    /// 调用方自带的 <see cref="Throttle"/> 窗口仍生效。
+    /// </summary>
+    public SoundBuilder BypassConcurrency()
+    {
+        bypassConcurrency = true;
+        return this;
+    }
+
     private string throttleKey;
     private float throttleCooldown;
 
@@ -80,7 +93,8 @@ public class SoundBuilder
     public SoundEmitter Play(SoundCategory category = null)
     {
         // 先过分类限流（纯检查），再消耗 throttle 窗口，避免被分类挡下的请求白占冷却。
-        if (!soundManager.CanPlaySound(category))
+        // 关键操作音（BypassConcurrency）跳过分类限流，throttle 窗口仍然生效。
+        if (!bypassConcurrency && !soundManager.CanPlaySound(category))
             return null;
 
         if (!soundManager.TryPassThrottle(throttleKey, throttleCooldown))

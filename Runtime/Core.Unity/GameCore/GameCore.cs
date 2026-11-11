@@ -81,7 +81,10 @@ public class KGameCore
     /// <summary>所有已注册模块的只读枚举（供编辑器调试用）。</summary>
     public IEnumerable<IModule> AllModules => _modules.Values;
 
-    /// <summary>共享场景挂点：模块生成物体（如地牢 root）时作为 parent。由 GameCoreProxy 提供。</summary>
+    /// <summary>
+    /// 旧共享挂点，保留兼容。模块应通过 <see cref="IPersistentRoot"/> 注册自己的跨场景子根。
+    /// </summary>
+    [Obsolete("使用 IPersistentRoot 注册跨场景子根；不再向模块暴露共享根对象。")]
     public GameObject ModuleRoot => proxy != null ? proxy.gameObject : null;
 
     public T GetModule<T>() where T : class, IModule
@@ -241,39 +244,6 @@ public class KGameCore
     public void DisposeAllServices()
     {
         ServiceLocator.DisposeAllServices();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  GameMode
-    // ═══════════════════════════════════════════════════════════════
-
-    public KSignal<GameMode> OnAnyModeBegin = new();
-    public KSignal<GameMode> OnAnyModeStart = new();
-    public KSignal<GameMode> OnAnyModeEnd = new();
-    public KSignal<GameMode, GameMode> OnModeSwitch = new();
-
-    public GameMode CurrentGameMode;
-
-    public void SwitchGameMode(GameMode value)
-    {
-        if (CurrentGameMode == value) return;
-
-        if (CurrentGameMode)
-        {
-            CurrentGameMode.OnSwitchGameMode(value);
-            CurrentGameMode.OnModeEnd();
-            OnAnyModeEnd?.Invoke(CurrentGameMode);
-            CurrentGameMode.gameObject.SetActive(false);
-        }
-
-        if (value) value.gameObject.SetActive(true);
-
-        CurrentGameMode = value;
-        if (CurrentGameMode)
-        {
-            CurrentGameMode.OnModeAwake();
-            OnAnyModeBegin?.Invoke(CurrentGameMode);
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -59,9 +59,6 @@ public class SceneService : PersistentSingleton<SceneService>, ISceneService
     [Tooltip("切换主场景时是否自动关闭所有 Module")]
     public bool ShutdownModulesOnSwitch = true;
 
-    [Tooltip("切换主场景时是否自动将 GameMode 置空")]
-    public bool ResetGameModeOnSwitch = true;
-
     protected override void OnServiceInit()
     {
         ServiceLocator.Register<ISceneService>(this);
@@ -111,13 +108,7 @@ public class SceneService : PersistentSingleton<SceneService>, ISceneService
             _history.Push(CurrentScene);
         }
 
-        // 2. 切换 GameMode
-        if (ResetGameModeOnSwitch)
-        {
-            KGameCore.Instance.SwitchGameMode(null);
-        }
-
-        // 3. 关闭模块
+        // 2. 关闭模块
         if (ShutdownModulesOnSwitch)
         {
             yield return KGameCore.Instance.proxy.ShutdownModules();
@@ -151,23 +142,12 @@ public class SceneService : PersistentSingleton<SceneService>, ISceneService
         OnSceneLoadProgress.Invoke(Progress);
         Transition?.ReportProgress(Progress);
 
-        // 5. 传递 PersistentData 给新场景的 GameMode
-        if (persistentData != null)
-        {
-            persistentData.SceneAddressablePath = sceneRef.AssetGUID;
-            var gameModes = FindObjectsByType<GameMode>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
-            foreach (var gm in gameModes)
-            {
-                gm.PersistentData = persistentData;
-            }
-        }
-
-        // 6. 激活场景
+        // 5. 激活场景
         var activateOp = loadHandle.Result.ActivateAsync();
         activateOp.allowSceneActivation = true;
         yield return activateOp;
 
-        // 7. 更新当前场景信息
+        // 6. 更新当前场景信息
         CurrentScene = new SceneInfo
         {
             SceneName = loadHandle.Result.Scene.name,
@@ -222,11 +202,6 @@ public class SceneService : PersistentSingleton<SceneService>, ISceneService
         if (recordHistory && CurrentScene != null)
         {
             _history.Push(CurrentScene);
-        }
-
-        if (ResetGameModeOnSwitch)
-        {
-            KGameCore.Instance.SwitchGameMode(null);
         }
 
         if (ShutdownModulesOnSwitch)

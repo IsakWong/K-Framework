@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using TMPro;
@@ -26,6 +27,19 @@ public class UILoadingPanel : UIPanel
     [Header("加载符号（可选）")]
     [Tooltip("呼吸点图标，依次错开做 alpha 呼吸")]
     public Graphic[] LoadingDots;
+
+    [Header("过场字幕（可选，未绑定则 PlayCaptionAsync 直接返回 false）")]
+    [Tooltip("字幕根节点（CanvasGroup），渐黑盖屏期间显示，层级天然在遮罩之上")]
+    public CanvasGroup CaptionGroup;
+    [Tooltip("字幕正文，逐字显现")]
+    public TMP_Text CaptionText;
+    [Tooltip("逐字 8bit 音效")]
+    public AudioClip CaptionBlipSfx;
+    [Tooltip("逐字音效分类：决定混音路由与限流")]
+    public SoundCategory CaptionBlipCategory;
+    [Range(0f, 1f)] public float CaptionBlipVolume = 0.5f;
+    [Tooltip("音高随机幅度，避免每字音高一致显得机械")]
+    public float CaptionBlipPitchRange = 0.06f;
 
     [Header("色块动画")]
     public float ShowDuration = 0.35f;
@@ -104,6 +118,7 @@ public class UILoadingPanel : UIPanel
     private Tween _showTween;
     private Tween _hideTween;
     private Tween _contentTween;
+    private Tween _captionTween;
     private Tween[] _dotTweens;
 
     /// <summary>
@@ -129,6 +144,7 @@ public class UILoadingPanel : UIPanel
         _openedAt = float.MinValue;
         _contentTween?.Kill();
         KillDots();
+        StopCaption();
         base.OnClose();
         _loadingCloseCallback?.Invoke();
     }
@@ -191,6 +207,16 @@ public class UILoadingPanel : UIPanel
             yield return null;
     }
 
+    /// <summary>
+    /// <see cref="WaitShowComplete"/> 的 UniTask 版，供 async 调用方直接 await。
+    /// 等待入场滑入动画播完（已播完或被中断则立即通过）。
+    /// </summary>
+    public async UniTask WaitShowCompleteAsync()
+    {
+        while (_showTween != null && _showTween.IsActive() && !_showTween.IsComplete())
+            await UniTask.Yield(PlayerLoopTiming.Update);
+    }
+
     public void PlayShowAnimation()
     {
         if (LoadingMask == null)
@@ -202,6 +228,8 @@ public class UILoadingPanel : UIPanel
         float w = rt.rect.width > 1 ? rt.rect.width : Screen.width;
         Debug.Log($"[UILoadingPanel] 色块从左侧滑入, width={w}, rectWidth={rt.rect.width}");
         rt.anchoredPosition = new Vector2(-w, 0);
+        // 上一轮渐亮退场可能把 alpha 淡到 0，重新打开时恢复不透明，保证滑入可见
+        LoadingMask.color = WithAlpha(LoadingMask.color, 1f);
         _showTween?.Kill();
         _showTween = rt.DOAnchorPosX(0, ShowDuration).SetEase(ShowEase);
 
@@ -244,6 +272,207 @@ public class UILoadingPanel : UIPanel
 
         _hideTween = rt.DOAnchorPosX(w, HideDuration).SetEase(HideEase)
             .OnComplete(() => onComplete?.Invoke());
+    }
+
+    /// <summary>
+    /// 滑出色块并等待退场动画完成后关闭面板（幂等：重复调用只会关一次）。
+    /// 对应 SceneLoadGate.RevealAsync 的「关」动作。
+    /// </summary>
+    public async UniTask RevealAsync()
+    {
+        var tcs = new UniTaskCompletionSource();
+        PlayHideAnimation(() => tcs.TrySetResult());
+        await tcs.Task;
+
+        var ui = UIService.Instance;
+        if (ui != null && ui.IsOpen(this))
+            await ui.CloseAsync(this);
+    }
+
+    /// <summary>
+    /// 渐黑盖屏：取消滑入、立刻铺满全屏并隐藏内容，在 duration 内把遮罩淡到全黑。
+    /// 对应 SceneLoadGate.CoverFadeAsync，用于传送等不播滑入的快速切换。
+    /// </summary>
+    public async UniTask CoverFadeAsync(float duration)
+    {
+        if (LoadingMask == null)
+        {
+            Debug.LogWarning("[UILoadingPanel] CoverFadeAsync: LoadingMask 为空");
+            return;
+        }
+
+        _showTween?.Kill();
+        _hideTween?.Kill();
+        _contentTween?.Kill();
+        KillDots();
+
+        if (ContentGroup != null)
+            ContentGroup.alpha = 0f;
+
+        LoadingMask.rectTransform.anchoredPosition = Vector2.zero;
+        LoadingMask.color = WithAlpha(LoadingMask.color, 0f);
+
+        if (duration <= 0f)
+        {
+            LoadingMask.color = WithAlpha(LoadingMask.color, 1f);
+            return;
+        }
+
+        await WaitTweenAsync(LoadingMask.DOFade(1f, duration).SetEase(Ease.Linear));
+    }
+
+    /// <summary>
+    /// 渐亮撤屏：在 duration 内把遮罩淡到透明。不关闭面板，关闭由调用方负责。
+    /// 对应 SceneLoadGate.RevealFadeAsync；下次打开时 PlayShowAnimation 会恢复遮罩不透明度。
+    /// </summary>
+    public async UniTask RevealFadeAsync(float duration)
+    {
+        if (LoadingMask == null)
+            return;
+
+        if (duration <= 0f)
+        {
+            LoadingMask.color = WithAlpha(LoadingMask.color, 0f);
+            return;
+        }
+
+        await WaitTweenAsync(LoadingMask.DOFade(0f, duration).SetEase(Ease.Linear));
+    }
+
+    // 过场字幕的淡入/淡出时长。逐字间隔与停留由调用方按文案节奏传入。
+    private const float CaptionFadeInDuration = 0.15f;
+    private const float CaptionFadeOutDuration = 0.25f;
+
+    /// <summary>
+    /// 在遮罩上逐字打出过场字幕：每露出一个非空白字符响一声 8bit，打完停留 hold 秒后淡出。
+    /// 面板或字幕节点未绑定时返回 false，由调用方兜底；ct 取消时中断并抛 <see cref="OperationCanceledException"/>。
+    /// 播放中再次调用会打断上一条，上一条的 await 立即返回 false。
+    /// </summary>
+    public async UniTask<bool> PlayCaptionAsync(string caption, float charInterval, float hold, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(caption) || CaptionText == null || CaptionGroup == null)
+            return false;
+
+        ct.ThrowIfCancellationRequested();
+
+        // 打断上一条：Kill 会放行它的 await，并按 false 收尾
+        StopCaption();
+
+        CaptionGroup.gameObject.SetActive(true);
+        CaptionGroup.alpha = 0f;
+        CaptionText.text = caption;
+        CaptionText.maxVisibleCharacters = 0;
+        CaptionText.ForceMeshUpdate();
+
+        int total = CaptionText.textInfo.characterCount;
+        float interval = Mathf.Max(0.01f, charInterval);
+
+        var sequence = DOTween.Sequence().SetUpdate(true);
+        sequence.Append(CaptionGroup.DOFade(1f, CaptionFadeInDuration).SetEase(Ease.OutQuad));
+        if (total > 0)
+            sequence.Append(CreateCaptionTypewriterTween(total, interval));
+        sequence.AppendInterval(Mathf.Max(0f, hold));
+        sequence.Append(CaptionGroup.DOFade(0f, CaptionFadeOutDuration).SetEase(Ease.InQuad));
+
+        var completion = new UniTaskCompletionSource();
+        sequence.OnComplete(() => completion.TrySetResult());
+        sequence.OnKill(() => completion.TrySetResult());
+        _captionTween = sequence;
+
+        using (ct.Register(StopCaption))
+        {
+            await completion.Task;
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // 仍指向本次序列才说明是正常播完；被打断时 StopCaption 已经收尾
+        bool completed = _captionTween == sequence;
+        if (completed)
+        {
+            _captionTween = null;
+            HideCaption();
+        }
+
+        return completed;
+    }
+
+    /// <summary>字幕按字推进，每露出一个非空白字符响一声 8bit。</summary>
+    private Tween CreateCaptionTypewriterTween(int total, float interval)
+    {
+        int shown = 0;
+        return DOTween.To(() => 0f, progress =>
+            {
+                int visible = Mathf.Clamp(Mathf.CeilToInt(progress * total), 0, total);
+                if (visible <= shown)
+                    return;
+
+                bool speak = false;
+                for (int i = shown; i < visible; i++)
+                {
+                    var info = CaptionText.textInfo.characterInfo[i];
+                    if (info.isVisible && !char.IsWhiteSpace(info.character))
+                    {
+                        speak = true;
+                        break;
+                    }
+                }
+
+                shown = visible;
+                CaptionText.maxVisibleCharacters = visible;
+                if (speak)
+                    PlayCaptionBlip();
+            }, 1f, total * interval)
+            .SetEase(Ease.Linear)
+            .SetUpdate(true)
+            .OnComplete(() => CaptionText.maxVisibleCharacters = int.MaxValue);
+    }
+
+    /// <summary>每字一声 8bit 方波，音高在 <see cref="CaptionBlipPitchRange"/> 内随机。</summary>
+    private void PlayCaptionBlip()
+    {
+        if (CaptionBlipSfx == null || SoundService.Instance == null)
+            return;
+
+        var emitter = SoundService.Instance.PlaySound(CaptionBlipSfx, CaptionBlipVolume, CaptionBlipCategory);
+        emitter?.WithRandomPitch(CaptionBlipPitchRange);
+    }
+
+    /// <summary>打断当前字幕并立即收尾（关闭面板、被新字幕顶替、取消时调用）。</summary>
+    private void StopCaption()
+    {
+        var tween = _captionTween;
+        _captionTween = null;
+        tween?.Kill();
+        HideCaption();
+    }
+
+    private void HideCaption()
+    {
+        if (CaptionGroup != null)
+        {
+            CaptionGroup.alpha = 0f;
+            CaptionGroup.gameObject.SetActive(false);
+        }
+
+        if (CaptionText != null)
+            CaptionText.maxVisibleCharacters = int.MaxValue;
+    }
+
+    /// <summary>
+    /// 等待 tween 结束（完成或被 Kill 都放行）。
+    /// 不依赖 UniTask.DOTween 扩展——其 <c>ToUniTask</c> 受 UNITASK_DOTWEEN_SUPPORT 宏控制，
+    /// 本项目 DOTween 是预编译插件而非 UPM 包，宏不会定义。
+    /// </summary>
+    private static async UniTask WaitTweenAsync(Tween tween)
+    {
+        if (tween == null || !tween.IsActive())
+            return;
+
+        var tcs = new UniTaskCompletionSource();
+        tween.OnComplete(() => tcs.TrySetResult());
+        tween.OnKill(() => tcs.TrySetResult());
+        await tcs.Task;
     }
 
     private void PlayDots()

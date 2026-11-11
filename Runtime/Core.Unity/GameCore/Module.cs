@@ -1,14 +1,13 @@
 using System.Collections;
 using Framework.Coroutine;
-using UnityEngine;
 
 namespace KFramework
 {
     /// <summary>
     /// 可热插拔模块接口。
     ///
-    /// 与 IService（全局永久服务）不同，IModule 是场景/玩法级别的
-    /// 动态模块，由 KGameCore 独立管理，可随时装卸。
+    /// 与 IService（全局永久服务）不同，IModule 是运行期可动态装卸的模块，
+    /// 由宿主决定何时 Init / Dispose；接口本身不依赖任何 UnityEngine 类型。
     /// </summary>
     public interface IModule
     {
@@ -16,7 +15,6 @@ namespace KFramework
         void Init();
         void Dispose();
         bool RequestShutdown();
-        GameObject GetGameObjectProxy();
         void OnLogic(float delta);
 
         /// <summary>Tick 顺序，值小的先执行。默认 0。</summary>
@@ -47,7 +45,7 @@ namespace KFramework
     /// 设计约定：
     /// - 模块负责按 Order 顺序 Tick 游戏逻辑，不存储 Unity 序列化数据（配置进 SO/Service）
     /// - 协程使用框架纯 C# CoroutineManager，由 KGameCore.OnLogic 统一驱动
-    /// - 需要场景挂点（生成物体 parent）时使用 KGameCore.Instance.ModuleRoot
+    /// - 需要跨场景挂点的模块自行通过 IPersistentRoot 注册子根，不依赖模块基类提供 GameObject
     /// </summary>
     public abstract class TModule<T> : IModule where T : TModule<T>, new()
     {
@@ -83,9 +81,6 @@ namespace KFramework
         }
 
         public virtual bool RequestShutdown() => true;
-
-        /// <summary>返回共享场景挂点（KGameCore.ModuleRoot），模块自身无 GameObject。</summary>
-        public GameObject GetGameObjectProxy() => KGameCore.Instance.ModuleRoot;
 
         public void OnLogic(float delta)
         {

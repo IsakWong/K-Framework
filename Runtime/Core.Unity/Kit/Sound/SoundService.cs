@@ -24,6 +24,8 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
     // Key = SoundCategory.GetInstanceID(), tracks active count and last play time
     private readonly Dictionary<int, int> _activeCountByCategory = new();
     private readonly Dictionary<int, float> _lastPlayTimeByCategory = new();
+    // 被分类限流（冷却 / 并发上限）拒掉的累计次数，供调试面板展示
+    private readonly Dictionary<int, int> _droppedCountByCategory = new();
 
     private bool _poolInitialized;
 
@@ -91,7 +93,10 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
             if (_lastPlayTimeByCategory.TryGetValue(key, out float lastTime))
             {
                 if (Time.unscaledTime - lastTime < category.cooldown)
+                {
+                    RecordDropped(key);
                     return false;
+                }
             }
         }
 
@@ -100,7 +105,10 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
         {
             _activeCountByCategory.TryGetValue(key, out int count);
             if (count >= category.maxConcurrent)
+            {
+                RecordDropped(key);
                 return false;
+            }
         }
 
         // Global frequent sound limit
@@ -114,6 +122,7 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
                     oldest.Value.Stop();
                     return true;
                 }
+                RecordDropped(key);
                 return false;
             }
         }
@@ -179,6 +188,23 @@ public class SoundService : PersistentSingleton<SoundService>, ISoundService
         {
             _activeCountByCategory[key] = Mathf.Max(0, count - 1);
         }
+    }
+
+    /// <summary>
+    /// 某个分类累计被限流（冷却 / 并发上限 / 频繁音效上限）拒掉的播放次数，进程内累计。
+    /// 供 Sound 调试面板展示。
+    /// </summary>
+    public int GetDroppedCount(SoundCategory category)
+    {
+        if (category == null) return 0;
+        _droppedCountByCategory.TryGetValue(category.GetInstanceID(), out int count);
+        return count;
+    }
+
+    private void RecordDropped(int categoryKey)
+    {
+        _droppedCountByCategory.TryGetValue(categoryKey, out int count);
+        _droppedCountByCategory[categoryKey] = count + 1;
     }
 
     public SoundEmitter Get()
