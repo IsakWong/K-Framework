@@ -1,70 +1,66 @@
 # UI 模块
 
-K-Framework UI 管理模块。栈式 Fullscreen + 共存 Overlay + 父子级联 + Suspend/Resume 状态保留 + 基于 UniTask 的异步 API + 可扩展淡入淡出动画。
+K-Framework UI 管理模块。四层 Canvas + Window 栈 + Popup 叠层 + Service 覆盖层 + 父子级联 + 基于 UniTask 的异步 API + 可扩展动画。
 
 ## 设计原则
 
-- **栈/容器管理与面板生命周期分层**：业务只调 `UIService`；`UIPanel` 仅暴露字段、信号与可重写回调，所有"打开/关闭/置前"操作必须经 UIService
-- **没有同步包装**：所有改变状态的方法返回 `UniTask`；fire-and-forget 必须显式 `.Forget()`，避免异常被静默吞掉
-- **唯一类型源**：`UIPanelKind { Fullscreen, Overlay }`，`Kind` 字段是唯一来源（无遗留 bool 字段）
+- **层是静态的，容器是动态的**：`UILayer` 决定渲染层级（Canvas sortingOrder），层内策略各不相同——Window 是栈，其余是集合
+- **栈/容器管理与面板生命周期分层**：业务只调 `UIService`；`UIPanel` 仅暴露字段、信号与可重写回调
+- **没有同步包装**：所有改变状态的方法返回 `UniTask`；fire-and-forget 必须显式 `.Forget()`
+- **唯一类型源**：`UILayer { Hud, Window, Popup, Service }`
 
 ## 架构
 
 ```
 UIService (PersistentSingleton, IUIService)
-  ├─ PanelAnimation   : UIAnimation             全局显隐动画（可选，优先于 OpenFx）
-  ├─ _fullscreenStack : LinkedList<UIPanel>     栈式独占，只有栈顶可见
-  ├─ _overlays        : List<UIPanel>           与 Fullscreen 共存的叠加层
-  ├─ _childrenOf      : Dict<UIPanel, List>     父子关系索引，父 Close 时级联
-  └─ _pendingOp       : UniTask                 串行锁，防止动画中栈被撕裂
+  ├─ PanelAnimation : UIAnimation              全局显隐动画（可选）
+  ├─ _hud      : List<UIPanel>                 HUD：常驻集合，不参与栈
+  ├─ _windows  : LinkedList<UIPanel>           Window：栈，只有栈顶可见；First = 栈顶
+  ├─ _popups   : List<UIPanel>                 Popup：叠在 Window 之上，多层并列
+  ├─ _services : List<UIPanel>                 Service：Loading/Toast，永远最上，CloseAll 不清
+  ├─ _childrenOf : Dict<UIPanel, List>         父子关系索引，父 Close 时级联
+  ├─ _layerRoots : Dict<UILayer, RectTransform> 每层的嵌套 Canvas 根节点
+  └─ _pendingOp : UniTask                      串行锁，防止动画中栈被撕裂
 
 UIAnimation (抽象基类)
   ├─ UIAnimationFade  : DOTween CanvasGroup 淡入淡出
-  ├─ UIAnimationMMF   : MMF_Player 包装（自动或手动）
-  └─ (自定义子类)     : 程序化动画、第三方 tween 库等
+  ├─ UIAnimationMMF   : MMF_Player 包装
+  └─ (自定义子类)     : 程序化动画、第三方 tween 库
 
 UIPanel (MonoBehaviour)
-  ├─ Kind : UIPanelKind { Fullscreen, Overlay }
+  ├─ Layer : UILayer                           面板所属层
   ├─ ParentPanel : UIPanel                     可选父面板引用
-  ├─ KeepAliveOnSuspend : bool                 切栈时走 Suspend（保留状态）而非 Close
   ├─ PanelAnimation : UIAnimation              面板级动画覆盖
-  ├─ OpenFx/CloseFx : MMF_Player               MMF 动画源（自动包装为 UIAnimationMMF）
   └─ internal Open/Close/Suspend/ResumeAsyncInternal   仅 UIService 调用
 ```
 
-## Panel 类型
+## 层模型
 
-| Kind | 语义 | 用例 |
-|------|------|------|
-| `Fullscreen` | 栈式独占。压栈时按 `KeepAliveOnSuspend` 选择 Suspend 旧栈顶或 Close 旧栈顶；新栈顶 Resume/Open | 主菜单、设置、背包、选择面板 |
-| `Overlay` | 与当前 Fullscreen 共存，多层并列；Push 顺序决定渲染层级 | HUD、Toast、Tooltip、通知 |
+| Layer | 容器策略 | sortingOrder | 用例 |
+|-------|----------|--------------|------|
+| `Hud` | 常驻集合，Push/Close 不影响其它层 | 0 | 血条、Boss 条、快捷栏、触屏按钮 |
+| `Window` | 严格栈式，压栈时旧栈顶 **Suspend**（保留订阅/BGM/状态），关闭后自动 Resume 下一张 | 100 | 主菜单、背包、图鉴、附魔台、失败菜单 |
+| `Popup` | 多层并列，层内置顶 | 200 | 设置、暂停、Tooltip、确认框、对话横条 |
+| `Service` | 永远在最上；`CloseAllAsync` 不会清掉 | 300 | Loading 遮罩、Toast |
 
-`Kind` 是 Panel 类型的唯一来源。无 `FullscreenPanel` 兼容字段。
+每层是根 Canvas 下的一个嵌套 Canvas（`overrideSorting = true` + 独立 `GraphicRaycaster`），
+层与层之间的层级**由 sortingOrder 固定，与 Push 顺序无关**；层内顺序才由 `SetAsLastSibling` 决定。
 
-## Open / Close / Suspend / Resume 生命周期
+## Panel 生命周期
 
-| 状态 | Visible | activeSelf | 订阅 | BGM |
-|------|---------|------------|------|-----|
-| Open | true | true | 保留 | 播放 |
-| Suspend（仅 KeepAliveOnSuspend=true） | false | false | **保留** | **保留** |
-| Close | false | false | DisconnectAll | PopTrack |
+| 状态 | Visible | activeSelf | 订阅 | BGM | IsSuspended |
+|------|---------|------------|------|-----|-------------|
+| Open | true | true | 保留 | 播放 | false |
+| Suspend（仅 Window 非栈顶） | false | false | **保留** | **保留** | true |
+| Close | false | false | DisconnectAll | PopTrack | false |
 
 - `OnOpen()` / `OnClose()` —— 完整生命周期，业务可重写。`OnClose` 默认 `subscriber.DisconnectAll() + SetActive(false) + PopTrack`
-- `OnSuspend()` / `OnResume()` —— 切栈保留状态时调用，默认空实现，业务按需重写
-
-`KeepAliveOnSuspend` 默认 `false`，行为退化为 Close（与切栈状态丢失的旧行为一致）。需要保留状态的 Panel 显式开启即可。
+- `OnSuspend()` / `OnResume()` —— Window 被压栈/回到栈顶时调用，默认空实现
+- Suspend 只做 `SetActive(false)`，**不断订阅、不动 BGM**，因此状态天然保留
 
 ## 父子界面
 
-`UIPanel.ParentPanel` 指定父面板。`PushAsync` 时把子注册到 `_childrenOf[parent]`；父被 Close 时，倒序级联 Close 所有子，**无论子是 Fullscreen 还是 Overlay**。
-
-```csharp
-// 子 Panel 在 Inspector 中指定 ParentPanel = 主菜单
-// 关闭主菜单时，设置面板、Codex 等子面板自动一起关闭
-await UIService.Instance.CloseAsync<UIMainMenuPanel>();
-```
-
-也可通过 API 显式指定父：
+`UIPanel.ParentPanel` 指定父面板。`PushAsync` 时把子注册到 `_childrenOf[parent]`；父被 Close 时倒序级联 Close 所有子，**无论子在哪个层**。
 
 ```csharp
 await UIService.Instance.PushAsync<UISettingsPanel>(parent: mainMenuPanel);
@@ -72,99 +68,70 @@ await UIService.Instance.PushAsync<UISettingsPanel>(parent: mainMenuPanel);
 
 ## 异步 API
 
-所有改变栈状态的方法返回 `UniTask` / `UniTask<T>`，内部 `await` 资源加载 + 过渡动画。同步的只读查询保持不变。
+所有改变栈状态的方法返回 `UniTask` / `UniTask<T>`，内部 `await` 资源加载 + 过渡动画。
 
-### 栈/容器操作
+### 容器操作
 
 ```csharp
-UniTask<T>       PushAsync<T>(UIPanel parent = null)         // 加载预制体 + 入容器 + Open
+UniTask<T>       PushAsync<T>(UIPanel parent = null, Action<T> configure = null)
 UniTask<UIPanel> PushAsync(UIPanel panel, UIPanel parent = null)
-                                                              // 已在容器内 → 转交 BringToFrontAsync
-UniTask          BringToFrontAsync(UIPanel panel)             // 已在容器：切到前台（Fullscreen 触发 Suspend/Resume）
+UniTask          PushWithCompanionsAsync(UIPanel host, params UIPanel[] companions)
+UniTask          PushBatchAsync(params UIPanel[] panels)
+UniTask          BringToFrontAsync(UIPanel panel)
 UniTask          BringToFrontAsync<T>()
-UniTask          CloseAsync(UIPanel panel = null)             // null = 栈顶 Fullscreen
+UniTask          CloseAsync(UIPanel panel = null)       // null = Window 栈顶
 UniTask<T>       CloseAsync<T>()
-UniTask          CloseTopFullscreenAsync()                    // 关栈顶 Fullscreen，保留 Overlay
-UniTask          CloseAllAsync()
+UniTask          CloseTopWindowAsync()
+UniTask          CloseAllAsync()                        // 关 Hud/Window/Popup，保留 Service
 ```
 
 ### 资源加载
 
 ```csharp
-UniTask<T>       RequireAsync<T>(string path = null)          // 加载预制体，不入容器（可预热）
+UniTask<T>       RequireAsync<T>(string path = null)    // 加载预制体，不入容器（可预热）
 UniTask<UIPanel> RequireAsync(Type type, string path = null)
-```
-
-### 销毁
-
-```csharp
-UniTask DestroyAsync<T>()
-UniTask DestroyAsync(UIPanel panel)
-UniTask DestroyAllAsync()
 ```
 
 ### 只读查询（同步）
 
 ```csharp
 T                GetUI<T>()
-bool             IsOpen<T>()                                  // 在容器内且 Visible
-bool             IsOpen(UIPanel panel)
-bool             IsLoaded<T>()                                // 已实例化（不要求在容器内）
-bool             IsLoaded(UIPanel panel)
+bool             IsOpen<T>()                            // 在任一层容器内且 Visible
+bool             IsLoaded<T>()                          // 已实例化（不要求在容器内）
 int              GetVisiblePanelCount()
-UIPanel          GetTopFullscreen()
-UIPanel          GetTopPanel()                                // Overlay 优先于 Fullscreen 栈顶
-IReadOnlyCollection<UIPanel> GetFullscreenStack()
-IReadOnlyList<UIPanel>       GetOverlays()
+UIPanel          GetTopWindow()                         // Window 栈顶
+UIPanel          GetTopPanel()                          // Service > Popup > Window > Hud
+IReadOnlyCollection<UIPanel> GetWindowStack()
+IReadOnlyList<UIPanel>       GetLayerPanels(UILayer layer)
 ```
 
-## Push / BringToFront / Close 核心流程
+## 核心流程
 
 **`PushAsync(panel)`**
 
-1. 若 panel 已在任一容器 → 转交 `BringToFrontAsync(panel)`
-2. 若 `panel.Kind == Fullscreen`：栈顶若有其它 Fullscreen → 按 `oldTop.KeepAliveOnSuspend` 选 `SuspendAsyncInternal` 或 `CloseAsyncInternal`；然后 `_fullscreenStack.AddFirst(panel)` + `await panel.OpenAsyncInternal()`
-3. 若 `panel.Kind == Overlay`：`_overlays.Add(panel)` + `await panel.OpenAsyncInternal()`
+1. 若 panel 已在任一层 → 转交 `BringToFrontAsync(panel)`
+2. `Window`：旧栈顶 `SuspendAsyncInternal()` → 入栈 → `OpenAsyncInternal()`
+3. `Hud` / `Popup` / `Service`：直接入对应集合 → `OpenAsyncInternal()`，不影响其它面板
 4. 有父引用 → 注册进 `_childrenOf[parent]`
-
-**`BringToFrontAsync(panel)`**（panel 必须已在容器）
-
-- Fullscreen：旧栈顶按 `KeepAliveOnSuspend` 走 Suspend/Close；自己移到栈顶；之前是 Suspend 状态则 `ResumeAsyncInternal`，否则 `OpenAsyncInternal`
-- Overlay：仅 `SetAsLastSibling`，按需 Open
 
 **`CloseAsync(panel)`**
 
-1. 倒序级联 `await CloseInternalAsync(child)` 所有子面板
-2. `await panel.CloseAsyncInternal()`（Suspend 状态的 Panel 直接关，不重播动画）
-3. 从所属容器移除；从父的 children 列表移除
-4. 若 panel 是 Fullscreen → 暴露的下一张栈顶按 Suspend/Cold 状态走 `ResumeAsyncInternal` 或 `OpenAsyncInternal`
+1. 倒序级联关闭子面板（companion 并行）
+2. 播放关闭动画 → `OnClose`
+3. 从所属层移除；从父的 children 列表移除
+4. 若 panel 是 Window → 栈顶下一张 `ResumeAsyncInternal()`
+
+**`CloseAllAsync()`**：按 Popup → Window → Hud 顺序关闭，**Service 层不动**——转场遮罩不会因为清 UI 被误关。
 
 ## 串行锁
 
-`PushAsync` / `CloseAsync` / `BringToFrontAsync` 可能被快速连按触发（例如连按 Tab 开关背包）。`WithLock(UniTask op)` 把每次操作排队到 `_pendingOp` 之后，保证一次只有一个栈操作在途，避免动画过程中栈被撕裂。
-
-```csharp
-private async UniTask WithLock(UniTask op)
-{
-    var previous = _pendingOp;
-    var tcs = new UniTaskCompletionSource();
-    _pendingOp = tcs.Task;
-    try { await previous; await op; }
-    finally { tcs.TrySetResult(); }
-}
-```
+`PushAsync` / `CloseAsync` / `BringToFrontAsync` 可能被快速连按触发。`WithLock(UniTask op)` 把每次操作排队到 `_pendingOp` 之后，保证一次只有一个栈操作在途，避免动画过程中栈被撕裂。
 
 ## 过渡动画
 
-UIPanel 显隐时通过 `GetEffectiveAnimation()` 按以下优先级解析动画：
+`GetEffectiveAnimation()` 优先级：`UIPanel.PanelAnimation` → `UIService.PanelAnimation` → 无。
 
-| 优先级 | 来源 | 说明 |
-|--------|------|------|
-| 1 | `UIPanel.PanelAnimation` | 面板级覆盖，Inspector 可设 |
-| 2 | `UIService.Instance.PanelAnimation` | 全局动画，所有 Panel 共享 |
-| 3 | `OpenFx` / `CloseFx` | MMF_Player，自动包装为 `UIAnimationMMF` |
-
-`OpenAsyncInternal` / `CloseAsyncInternal` 会在 `OnPanelBeginOpen` / `OnPanelBeginClose` 信号之后执行动画，`await` 动画完成后才调用 `OnOpen()` / `OnClose()` 触发 `OnPanelOpen` / `OnPanelClose`。Suspend/Resume 复用同一套动画（CloseAnim 用于 Suspend，OpenAnim 用于 Resume）。
+`OpenAsyncInternal` / `CloseAsyncInternal` 在 `OnPanelBeginOpen` / `OnPanelBeginClose` 之后执行动画，`await` 完成后才触发 `OnPanelOpen` / `OnPanelClose`。Suspend/Resume 复用同一套动画。
 
 ### 启用全局淡入淡出
 
@@ -176,135 +143,46 @@ UIService.Instance.PanelAnimation = new UIAnimationFade
 };
 ```
 
-### 动画信号
-
-`UIAnimation` 基类提供四个 `KSignal<UIPanel>` 信号：
-
-```csharp
-var anim = UIService.Instance.PanelAnimation;
-anim.OnOpenStart.Connect(panel => Debug.Log($"{panel.name} 开始打开"));
-anim.OnOpenEnd.Connect(panel => Debug.Log($"{panel.name} 打开完成"));
-anim.OnCloseStart.Connect(panel => Debug.Log($"{panel.name} 开始关闭"));
-anim.OnCloseEnd.Connect(panel => Debug.Log($"{panel.name} 关闭完成"));
-```
-
-## 动画扩展
-
-`IUIAnimation` 接口 + `UIAnimation` 抽象基类的设计允许自由替换动画实现。只需继承 `UIAnimation` 并实现 `PlayOpenAsync` / `PlayCloseAsync`。
-
-### 内置：UIAnimationFade（DOTween）
-
-```csharp
-public class UIAnimationFade : UIAnimation
-{
-    public Ease Ease = Ease.OutCubic;
-
-    public override async UniTask PlayOpenAsync(CanvasGroup cg, CancellationToken ct)
-    {
-        cg.alpha = 0f;
-        await cg.DOFade(1f, Duration).SetEase(Ease).ToUniTask(cancellationToken: ct);
-    }
-
-    public override async UniTask PlayCloseAsync(CanvasGroup cg, CancellationToken ct)
-    {
-        cg.alpha = 1f;
-        await cg.DOFade(0f, Duration).SetEase(Ease).ToUniTask(cancellationToken: ct);
-    }
-}
-```
-
-### 内置：UIAnimationMMF（MMF_Player）
-
-```csharp
-public class UIAnimationMMF : UIAnimation
-{
-    public MMF_Player OpenPlayer { get; set; }
-    public MMF_Player ClosePlayer { get; set; }
-
-    public override async UniTask PlayOpenAsync(CanvasGroup cg, CancellationToken ct)
-    {
-        if (OpenPlayer == null) return;
-        OpenPlayer.PlayFeedbacks();
-        await UniTask.WaitUntil(() => !OpenPlayer.IsPlaying, cancellationToken: ct);
-    }
-
-    public override async UniTask PlayCloseAsync(CanvasGroup cg, CancellationToken ct)
-    {
-        if (ClosePlayer == null) return;
-        ClosePlayer.PlayFeedbacks();
-        await UniTask.WaitUntil(() => !ClosePlayer.IsPlaying, cancellationToken: ct);
-    }
-}
-```
-
-UIPanel 在 `GetEffectiveAnimation()` 中会自动将 `OpenFx` / `CloseFx` 包装为 `UIAnimationMMF` 实例。
-
 ## 信号一览
 
-| 信号 | 类型 | 来源 | 时机 |
-|------|------|------|------|
-| `OnPanelBeginOpen` | `KSignal` | UIPanel | SetActive 之后、动画之前 |
-| `OnPanelOpen` | `KSignal` | UIPanel | 动画完成、`OnOpen()` 之后 |
-| `OnPanelBeginClose` | `KSignal` | UIPanel | 关闭开始时 |
-| `OnPanelClose` | `KSignal` | UIPanel | 动画完成、`OnClose()` 之后 |
-| `OnPanelBeginSuspend` | `KSignal` | UIPanel | 挂起开始时 |
-| `OnPanelSuspend` | `KSignal` | UIPanel | 挂起完成时 |
-| `OnPanelBeginResume` | `KSignal` | UIPanel | 恢复开始时 |
-| `OnPanelResume` | `KSignal` | UIPanel | 恢复完成时 |
-| `OnOpenStart` / `OnOpenEnd` | `KSignal<UIPanel>` | UIAnimation | 全局打开动画起止 |
-| `OnCloseStart` / `OnCloseEnd` | `KSignal<UIPanel>` | UIAnimation | 全局关闭动画起止 |
+| 信号 | 类型 | 时机 |
+|------|------|------|
+| `OnPanelBeginOpen` | `KSignal` | SetActive 之后、动画之前 |
+| `OnPanelOpen` | `KSignal` | 动画完成、`OnOpen()` 之后 |
+| `OnPanelBeginClose` | `KSignal` | 关闭开始时 |
+| `OnPanelClose` | `KSignal` | 动画完成、`OnClose()` 之后 |
+| `OnPanelBeginSuspend` / `OnPanelSuspend` | `KSignal` | Window 被压栈（开始/完成） |
+| `OnPanelBeginResume` / `OnPanelResume` | `KSignal` | Window 回到栈顶（开始/完成） |
+| `OnOpenStart` / `OnOpenEnd` | `KSignal<UIPanel>` | 全局打开动画起止 |
+| `OnCloseStart` / `OnCloseEnd` | `KSignal<UIPanel>` | 全局关闭动画起止 |
 
 ## 调用示例
 
 ```csharp
-// 启用全局淡入淡出（Init 阶段一次调用）
-UIService.Instance.PanelAnimation = new UIAnimationFade { Duration = 0.3f };
-
-// 打开背包（Fullscreen，自动淡入）
+// 打开背包（Window，自动挂起栈顶）
 var backpack = await UIService.Instance.PushAsync<UIBackpackPanel>();
 backpack.Initialize(character);
 
-// 关闭当前栈顶 Fullscreen（自动淡出，下一张淡入）
+// 关闭当前 Window 栈顶（下一张自动 Resume）
 await UIService.Instance.CloseAsync();
 
-// HUD（Overlay，Kind = Overlay）
+// HUD（常驻，不参与栈）
 await UIService.Instance.PushAsync<UIGameplayPanel>();
 
-// Fire-and-forget（按钮 UnityEvent 回调）
+// 设置叠在暂停面板之上（Popup）
+await UIService.Instance.PushAsync<UISettingsPanel>(parent: pausePanel);
+
+// Loading（Service，永远不会被其它面板顶掉）
+await UIService.Instance.PushAsync(loadingPanel);
+
+// Fire-and-forget（按钮回调）
 _backButton.onClick.AddListener(() =>
     UIService.Instance.CloseAsync(this).Forget());
-
-// 在 IEnumerator 协程中等待
-yield return UIService.Instance.CloseAsync<UILoadingPanel>().ToCoroutine();
-
-// 监听动画事件
-UIService.Instance.PanelAnimation.OnOpenEnd.Connect(panel =>
-{
-    if (panel is UIMainMenuPanel) StartBackgroundMusic();
-});
-
-// 切栈保留状态：Inspector 设 KeepAliveOnSuspend = true
-// 之后 Push 其它 Fullscreen 时，此 Panel 走 Suspend（保留订阅、BGM、状态），
-// CloseAsync 它时再走完整 Close
 ```
 
 ## 依赖
 
-- **Cysharp UniTask** 2.5.10 — 通过 `Packages/manifest.json` 引入；`KFramework.asmdef` 需 `references` 中添加 `UniTask` + `UniTask.DOTween`
-- **DOTween** — `UIAnimationFade` 的淡入淡出
-- **MoreMountains Feel** — `MMF_Player` 过渡动画
-- **Addressables** — `AssetService.LoadAssetAsync<T>()`
-- **Sirenix Odin Inspector** — `[LabelText]` 等编辑器标签
-
-## 改造背景
-
-- **2026-04 v1**：拆分 Fullscreen/Overlay 双容器、引入父子级联、UniTask 化、串行锁
-- **2026-04 v2**：引入 `IUIAnimation` 可扩展动画系统与 `UIAnimationFade`
-- **2026-04 v3**（本次）：
-  - 删除 `FullscreenPanel` 兼容字段，`Kind` 成为唯一类型源
-  - 接口分层：`UIService` 是唯一对外操作入口；`UIPanel` 仅暴露字段/信号/protected 回调
-  - 重命名 Show/Hide → Open/Close（API 与字段全面对齐）
-  - 删除所有同步包装（`Open()/Close()/Pop()/ShowPanel()/HidePanel()`）；fire-and-forget 必须显式 `.Forget()`
-  - 新增 `BringToFrontAsync` —— 已在容器时切到前台
-  - 新增 `Suspend/Resume` 生命周期 + `KeepAliveOnSuspend` 字段 —— 切栈可保留状态
-  - 重命名 `IsUIVisible → IsOpen`；新增 `IsLoaded`
+- **Cysharp UniTask** — 异步 API
+- **DOTween / MoreMountains Feel** — 过渡动画
+- **Addressables** — `AssetService.LoadAsync<T>()`
+- **Sirenix Odin Inspector** — `[LabelText]` 编辑器标签

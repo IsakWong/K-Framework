@@ -7,12 +7,26 @@ using UnityEngine.UI;
 
 namespace KFramework
 {
-public enum UIPanelKind
+/// <summary>
+/// UI 层。每层是独立的 Canvas 子树，层与层之间的层级由 sortingOrder 固定：
+/// <code>
+/// HUD(0) &lt; Window(100) &lt; Popup(200) &lt; Service(300)
+/// </code>
+/// 层内策略各不相同：Window 是栈，其余是集合。
+/// </summary>
+public enum UILayer
 {
-    [LabelText("全屏独占")]
-    Fullscreen,
-    [LabelText("叠加层")]
-    Overlay,
+    [LabelText("HUD 常驻")]
+    Hud = 0,
+
+    [LabelText("主窗口（栈）")]
+    Window = 1,
+
+    [LabelText("弹窗")]
+    Popup = 2,
+
+    [LabelText("服务层（Loading/Toast）")]
+    Service = 3,
 }
 
 /// <summary>
@@ -28,29 +42,19 @@ public class UIPanel : MonoBehaviour
     // Inspector 字段
     // ════════════════════════════════════════════════
 
-    [LabelText("面板类型")]
-    [Tooltip("Fullscreen=栈式独占，压栈时隐藏上一张Fullscreen；Overlay=与Fullscreen共存，多层可并列")]
-    public UIPanelKind Kind = UIPanelKind.Fullscreen;
+    [LabelText("UI 层")]
+    [Tooltip("Hud=常驻不参与栈；Window=栈式，压栈时下层挂起；Popup=叠加在 Window 之上；Service=永远最上，CloseAll 不清")]
+    public UILayer Layer = UILayer.Window;
 
     [LabelText("父级面板")]
     [Tooltip("可选归属Panel，父Panel关闭时子Panel会被级联关闭")]
     public UIPanel ParentPanel;
-
-    [LabelText("挂起时保留状态")]
-    [Tooltip("仅 Fullscreen 生效。开启后被压栈时走 Suspend（仅 SetActive(false)，保留订阅与 BGM）；关闭走 Close（断订阅、Pop BGM）。")]
-    public bool KeepAliveOnSuspend = false;
 
     [LabelText("启动时打开")]
     public bool OpenOnStart = false;
 
     [LabelText("可见")]
     public bool Visible = false;
-
-    [LabelText("可交互")]
-    public bool Interactable = true;
-
-    [LabelText("静音游戏声音")]
-    public bool MuteGameplay = false;
 
     [LabelText("打开音效")]
     public AudioClip OpenAudio;
@@ -76,6 +80,10 @@ public class UIPanel : MonoBehaviour
     /// </summary>
     [NonSerialized]
     public bool IsCompanion = false;
+
+    /// <summary>是否处于「被压栈挂起」状态。仅 Window 层的非栈顶面板为 true。</summary>
+    [NonSerialized]
+    internal bool IsSuspended = false;
 
     // ════════════════════════════════════════════════
     // 生命周期信号
@@ -125,17 +133,6 @@ public class UIPanel : MonoBehaviour
     public static System.Action<UIPanel, bool> OnBackgroundBlurRequested;
 
     // ════════════════════════════════════════════════
-    // 公开虚方法（业务可重写但不应直接调用）
-    // ════════════════════════════════════════════════
-
-    /// <summary>
-    /// 全局按键透传给当前栈顶 Panel（由 UIService 派发，当前未启用调度器）。
-    /// </summary>
-    public virtual void OnGlobalButtonPress(KeyCode code)
-    {
-    }
-
-    // ════════════════════════════════════════════════
     // Unity 生命周期
     // ════════════════════════════════════════════════
 
@@ -163,6 +160,7 @@ public class UIPanel : MonoBehaviour
     {
         EnhancedLog.Log($"[UIService]{name} OpenAsyncInternal");
         Visible = true;
+        IsSuspended = false;
         if (OpenAudio) SoundService.Instance.PlaySound(OpenAudio);
 
         var anim = GetEffectiveAnimation();
@@ -192,7 +190,6 @@ public class UIPanel : MonoBehaviour
             cg.blocksRaycasts = true;
         }
 
-        Interactable = true;
         OnOpen();
     }
 
@@ -234,7 +231,6 @@ public class UIPanel : MonoBehaviour
     private void PrepareForClose()
     {
         Visible = false;
-        Interactable = false;
 
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, false);
@@ -261,12 +257,12 @@ public class UIPanel : MonoBehaviour
 
     /// <summary>
     /// 挂起：保留订阅与 BGM，仅淡出并 SetActive(false)。
-    /// 仅当 <see cref="KeepAliveOnSuspend"/> 为 true 时由 UIService 调用。
+    /// 由 UIService 在 Window 层被新的主窗口压栈时调用。
     /// </summary>
     internal async UniTask SuspendAsyncInternal()
     {
         Visible = false;
-        Interactable = false;
+        IsSuspended = true;
 
         if (EnableBackgroundBlur)
             OnBackgroundBlurRequested?.Invoke(this, false);
@@ -298,6 +294,7 @@ public class UIPanel : MonoBehaviour
     {
         EnhancedLog.Log($"[UIService] {name} ResumeAsyncInternal");
         Visible = true;
+        IsSuspended = false;
 
         var anim = GetEffectiveAnimation();
         CanvasGroup cg = null;
@@ -324,7 +321,6 @@ public class UIPanel : MonoBehaviour
             cg.blocksRaycasts = true;
         }
 
-        Interactable = true;
         OnResume();
         OnPanelResume?.Invoke();
     }
@@ -351,6 +347,7 @@ public class UIPanel : MonoBehaviour
     protected virtual void OnClose()
     {
         IsCompanion = false;
+        IsSuspended = false;
         OnPanelClose?.Invoke();
         subscriber.DisconnectAll();
         gameObject.SetActive(false);

@@ -9,8 +9,9 @@ namespace KFramework
 /// UI 管理服务接口。
 ///
 /// 设计要点：
-/// - 栈式 Fullscreen + 共存 Overlay
-/// - Push 入容器并 Open；BringToFront 已在容器则切到前台（Fullscreen 触发 Suspend/Resume）
+/// - 四层：Hud（常驻集合）/ Window（栈）/ Popup（叠层）/ Service（全局覆盖，CloseAll 不清）
+/// - 层间层级由 Canvas sortingOrder 固定，层内顺序才由 Push 决定
+/// - Push 入对应层并 Open；BringToFront 已在容器则切到前台（Window 触发 Suspend/Resume）
 /// - Close 退出容器并触发 Close 生命周期；级联子面板
 /// - 所有"打开/关闭/置前"操作通过此接口，UIPanel 自身不暴露这些 API
 /// </summary>
@@ -37,24 +38,24 @@ public interface IUIService
 
     /// <summary>
     /// 已在容器内的 Panel 切到前台。
-    /// Fullscreen：当前栈顶按 KeepAliveOnSuspend 走 Suspend 或 Close，自己移到栈顶并 Resume/Open。
-    /// Overlay：仅 SetAsLastSibling。
+    /// Window：当前栈顶挂起，自己移到栈顶并 Resume/Open。
+    /// Hud / Popup / Service：仅层内置顶。
     /// </summary>
     UniTask BringToFrontAsync(UIPanel panel);
     UniTask BringToFrontAsync<T>() where T : UIPanel;
 
     // ─── 关闭 ───
 
-    /// <summary>关闭指定 Panel（null = 当前栈顶 Fullscreen）。会级联关闭所有子面板。</summary>
+    /// <summary>关闭指定 Panel（null = 当前 Window 栈顶）。会级联关闭所有子面板。</summary>
     UniTask CloseAsync(UIPanel panel = null);
 
     /// <summary>关闭第一个类型匹配的 Panel。</summary>
     UniTask<T> CloseAsync<T>() where T : UIPanel;
 
-    /// <summary>关闭栈顶 Fullscreen（保留 Overlay）。</summary>
-    UniTask CloseTopFullscreenAsync();
+    /// <summary>关闭 Window 栈顶（保留 Popup / Service）。</summary>
+    UniTask CloseTopWindowAsync();
 
-    /// <summary>关闭所有 Panel（包括 Overlay）。</summary>
+    /// <summary>关闭 Hud / Window / Popup（Service 层保留）。</summary>
     UniTask CloseAllAsync();
 
     // ─── 销毁 ───
@@ -67,7 +68,7 @@ public interface IUIService
 
     T GetUI<T>() where T : class;
 
-    /// <summary>Panel 已在容器内（栈或 Overlay 列表）且 Visible。</summary>
+    /// <summary>Panel 已在容器内（任一层）且 Visible。</summary>
     bool IsOpen<T>() where T : UIPanel;
     bool IsOpen(UIPanel panel);
 
@@ -78,12 +79,13 @@ public interface IUIService
     int GetVisiblePanelCount();
     bool HasAnyPanelVisible();
 
-    UIPanel GetTopFullscreen();
+    UIPanel GetTopWindow();
+    /// <summary>按层优先级取最顶层可见面板：Service &gt; Popup &gt; Window &gt; Hud。</summary>
     UIPanel GetTopPanel();
     UIPanel GetBottomPanel();
 
-    IReadOnlyCollection<UIPanel> GetFullscreenStack();
-    IReadOnlyList<UIPanel> GetOverlays();
+    IReadOnlyCollection<UIPanel> GetWindowStack();
+    IReadOnlyList<UIPanel> GetLayerPanels(UILayer layer);
 
     List<UIPanel> GetAllPanels();
     List<T> GetAllPanels<T>() where T : UIPanel;

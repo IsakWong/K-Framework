@@ -11,6 +11,13 @@ namespace KFramework
 {
 public class UILoadingPanel : UIPanel
 {
+    protected new void Awake()
+    {
+        base.Awake();
+        // Service：全局覆盖层，永远在 Service 层最上，不参与 Window 栈，CloseAll 不会清掉它
+        Layer = UILayer.Service;
+    }
+
     public float MinLoadTime = 0.5f;
 
     [Header("绑定")]

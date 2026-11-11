@@ -27,8 +27,8 @@ features:
     title: Unit 生命周期
     details: 完整实体生命周期：Spawning → Alive → Dying → Dead → Deleting
   - icon: 🖼️
-    title: UI 栈管理
-    details: Fullscreen 栈式独占 + Overlay 叠加层 + 异步 API + 可扩展动画
+    title: UI 分层管理
+    details: Hud/Window/Popup/Service 四层 + Window 栈 + 异步 API + 可扩展动画
   - icon: 🔊
     title: 音频系统
     details: SoundCategory 双层架构 + Mixer API + BGM Ducking + 3D 音效

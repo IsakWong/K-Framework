@@ -21,7 +21,7 @@ Core（引擎无关内核） → Unity（引擎适配） → Modules（功能模
 
 - **服务访问**：推荐 `ServiceLocator.Get<ISoundService>()`（接口隔离，可 Mock）；兼容 `SoundService.Instance`（经典单例）。安全访问用 `ServiceLocator.TryGet<T>(out var svc)`
 - **信号系统**：用 `KSignal`/`KSignal<T>`（点对点）和 `EventBus`（全局广播），禁止 C# 原生事件或 `UnityEvent`
-- **UI 管理**：所有栈操作必须走 `UIService`（`PushAsync<T>()`、`CloseAsync()`、`BringToFrontAsync<T>()`），`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
+- **UI 管理**：所有层操作必须走 `UIService`（`PushAsync<T>()`、`CloseAsync()`、`BringToFrontAsync<T>()`），`UIPanel` 不暴露公开 Open/Close 方法。返回 `UniTask`，fire-and-forget 必须显式 `.Forget()`
 - **资源加载**：`AssetService` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
 - **对象池**：`PoolService` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
 - **协程**：`KCoroutine` 不依赖 MonoBehaviour，可在纯 C# 上下文使用
@@ -43,8 +43,8 @@ KGameCore.SystemAt<T>()       // 获取，不存在返回 null
 
 ### UI 系统
 
-- `Fullscreen`：栈式独占，切栈按 `KeepAliveOnSuspend` 选 Suspend（保留状态/订阅/BGM）或 Close
-- `Overlay`：与 Fullscreen 共存，多层并列
+- `Hud` / `Window` / `Popup` / `Service`：四层 Canvas，层间 sortingOrder 固定；Window 是栈，压栈即 Suspend（保留状态/订阅/BGM）
+- `Popup`：叠在 Window 之上；`Service`：永远最上，`CloseAll` 不清
 - 信号：`OnPanelOpen`/`OnPanelClose`/`OnPanelBeginOpen` 等
 - 动画：`UIAnimation` 抽象基类（内置 `UIAnimationFade` DOTween 淡入淡出、`UIAnimationMMF`）
 
