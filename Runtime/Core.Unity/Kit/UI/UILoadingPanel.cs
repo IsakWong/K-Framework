@@ -410,8 +410,11 @@ public class UILoadingPanel : UIPanel
                 bool speak = false;
                 for (int i = shown; i < visible; i++)
                 {
-                    var info = CaptionText.textInfo.characterInfo[i];
-                    if (info.isVisible && !char.IsWhiteSpace(info.character))
+                    // 不能读 characterInfo.isVisible：它受 maxVisibleCharacters 影响，
+                    // 此处刚改过、textInfo 还没重算，新露出的字符 isVisible 仍为 false，
+                    // 会导致逐字音全部哑掉（文字照常显示）。
+                    char c = CaptionText.textInfo.characterInfo[i].character;
+                    if (!char.IsWhiteSpace(c) && !char.IsControl(c))
                     {
                         speak = true;
                         break;
