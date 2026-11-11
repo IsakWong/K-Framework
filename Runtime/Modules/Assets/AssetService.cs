@@ -98,11 +98,7 @@ public class AssetService : KSingleton<AssetService>, IAssetService
             return;
         }
 
-        var results = new List<Object>(locations.Count);
-        var handles = new List<AsyncOperationHandle>(locations.Count);
         var handleLocations = new List<IResourceLocation>(locations.Count);
-        Debug.Log($"[AssetService] 批次 '{label}': {locations.Count} 个地址");
-
         for (int i = 0; i < locations.Count; i++)
         {
             // 场景由 SceneManager 管理，不能当普通资产加载。
@@ -110,53 +106,56 @@ public class AssetService : KSingleton<AssetService>, IAssetService
                 continue;
 
             handleLocations.Add(locations[i]);
-            handles.Add(Addressables.LoadAssetAsync<Object>(locations[i]));
         }
 
-        // 一次性把所有加载操作排进 ResourceManager 再统一等待：
-        // 逐个 await 会让每个资源至少占用一帧（WebGL 上上千个资源就是数十秒）。
-        await WaitAllAsync(handles, onProgress);
+        int total = handleLocations.Count;
+        Debug.Log($"[AssetService] 批次 '{label}': {total} 个地址");
 
-        for (int i = 0; i < handles.Count; i++)
+        if (total == 0)
         {
-            var handle = handles[i];
-            if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
+            _labelAssets[label] = Array.Empty<Object>();
+            _labelHandles[label] = new List<AsyncOperationHandle>();
+            Addressables.Release(locationHandle);
+            return;
+        }
+
+        // 整批交给 Addressables 一次请求：内部按依赖合并成一组操作，只暴露一个句柄。
+        // 逐个 LoadAssetAsync 会为每个资源建一个句柄并逐帧轮询，WebGL 单线程下这是主要开销。
+        // releaseDependenciesOnFailure: false —— 单个资源失败不影响其余资源，与原行为一致。
+        var handle = Addressables.LoadAssetsAsync<Object>(handleLocations, null, false);
+
+        // 进度直接读整批的完成百分比：每帧 O(1)，不再扫描整个句柄列表。
+        while (!handle.IsDone)
+        {
+            onProgress?.Invoke(Mathf.RoundToInt(handle.PercentComplete * total), total);
+            await Task.Yield();
+        }
+        onProgress?.Invoke(total, total);
+
+        if (handle.Status != AsyncOperationStatus.Succeeded)
+            Debug.LogWarning($"[AssetService] 批次 '{label}' 有资源加载失败（共 {total} 个地址）");
+
+        // 结果与请求的 locations 一一对应，失败位为 null。
+        var loaded = handle.Result;
+        var results = new List<Object>(total);
+        for (int i = 0; i < handleLocations.Count; i++)
+        {
+            var asset = loaded != null && i < loaded.Count ? loaded[i] : null;
+            if (asset == null)
             {
                 Debug.LogWarning($"[AssetService] 批次 '{label}' 中资源加载失败: {handleLocations[i].PrimaryKey}");
                 continue;
             }
 
-            results.Add(handle.Result as Object);
+            results.Add(asset);
             if (handleLocations[i].PrimaryKey is string primaryKey)
-                _byPath[primaryKey] = handle.Result as Object;
+                _byPath[primaryKey] = asset;
         }
 
         _labelAssets[label] = results;
-        _labelHandles[label] = handles;
+        _labelHandles[label] = new List<AsyncOperationHandle> { handle };
         Addressables.Release(locationHandle);
 #endif
-    }
-
-    /// <summary>等待一批加载操作完成，期间按完成数量回报进度。</summary>
-    private static async Task WaitAllAsync(List<AsyncOperationHandle> handles, Action<int, int> onProgress)
-    {
-        if (handles.Count == 0)
-        {
-            onProgress?.Invoke(0, 0);
-            return;
-        }
-
-        while (true)
-        {
-            int completed = 0;
-            for (int i = 0; i < handles.Count; i++)
-                if (handles[i].IsDone || !handles[i].IsValid()) completed++;
-
-            onProgress?.Invoke(completed, handles.Count);
-            if (completed >= handles.Count) break;
-
-            await Task.Yield();
-        }
     }
 
     public void ReleaseLabel(string label)
