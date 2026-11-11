@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Framework.Testing
+namespace KFramework.Tests
 {
     public static class Tests
     {

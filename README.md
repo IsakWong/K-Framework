@@ -58,11 +58,12 @@ KFramework/
 ├── LICENSE                   # MIT 许可证
 ├── CHANGELOG.md              # 版本变更日志
 ├── README.md
-├── Runtime/                  # 运行时代码 (KFramework.asmdef)，物理目录按引擎依赖分桶
-│   ├── Core/                 #   引擎无关层（纯 C#）：协程核心、CSharpPool、IEvent、IService/ILogService
-│   ├── Core.Unity/           #   引擎绑定层：GameCore / Foundation / Action / Kit / ... 全部依赖引擎代码
-│   │   └── ThirdParty/       #     依赖引擎的内嵌三方（UnityHFSM、Fluid BT、JsonConverter、SerializedCollections、DOTween Modules）
-│   └── KFramework.asmdef     # 完整结构见 CLAUDE.md「项目结构」
+├── Runtime/                  # 运行时代码 (KFramework.asmdef)
+│   ├── Core/                 #   引擎无关内核（纯 C#）
+│   ├── Unity/                #   引擎适配层（MonoBehaviour / ScriptableObject 宿主）
+│   ├── Modules/              #   通用功能模块
+│   ├── Extensions/           #   可选游戏扩展（HUD / Player）
+│   └── ThirdParty/           #   内嵌三方（各自 namespace / asmdef）
 ├── Editor/                   # 编辑器扩展
 │   └── KFramework.Editor.asmdef
 ├── Tests/                    # 测试
@@ -82,24 +83,22 @@ KFramework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      Application Layer                              │
-│         GameMode 子类 / Controller 子类 / 业务逻辑                     │
+│                    Extensions Layer (可选扩展)                        │
+│   ControllerBase · PlayerModule · HUDBase                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                    FrameworkExt Layer (游戏扩展层)                     │
-│   PlayerModule · VfxService · HUD · Camera                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                     Module Layer (功能模块层)                          │
+│                     Modules Layer (功能模块)                          │
 │   UIService · SoundService · AssetService · ConfigService           │
-│   PersistentDataService · SettingsService · DebugService            │
-│   SceneService · EventBus · KVersion                                │
+│   SceneService · PoolService · VfxService · DebugService            │
+│   PersistentDataService · SettingsService · CameraInstance          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                      Core Layer (核心层)                              │
-│   KGameCore · GameCoreProxy · GameMode · TModule<T>                 │
-│   Signal/Subscriber · KTimer · Command · KCoroutine · FSM · BT     │
+│                      Unity Layer (引擎适配)                           │
+│   KGameCore · GameCoreProxy · SceneController · TModule<T>          │
+│   PersistentSingleton · KTime · EnhancedLog · Variant · AutoBind    │
 ├─────────────────────────────────────────────────────────────────────┤
-│                    Foundation Layer (基础层)                           │
-│   KSingleton · PersistentSingleton · ServiceLocator                 │
-│   EnhancedLog · Variant · MathExtension · AutoBind                  │
+│                       Core Layer (引擎无关)                           │
+│   KSingleton<T> · ServiceLocator · IService · ILogService           │
+│   KSignal/Subscriber · EventBus · Command · KCoroutine              │
+│   CSharpPool<T> · KStateMachine                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,42 +133,33 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 
 ## 二、模块清单
 
-### 2.1 Foundation Layer — 基础层
+### 2.1 Core Layer — 引擎无关内核
 
-| 文件 | 类/接口 | 说明 |
+| 目录 | 类/接口 | 说明 |
 |---|---|---|
-| `Base.cs` | `KSingleton<T>` | 纯 C# 单例基类，自动注册 ServiceLocator |
-| `PersistentSingleton.cs` | `PersistentSingleton<T>` | MonoBehaviour 单例，DontDestroyOnLoad |
-| `InstanceBehaviour.cs` | `InstanceBehaviour<T>` | 非单例 MonoBehaviour 基类 |
-| `ServiceLocator.cs` | `ServiceLocator` | 静态服务注册中心 (Register/Get/TryGet/Unregister/Reset) |
-| `EnhancedLog.cs` | `EnhancedLog` / `ILogService` | 分级日志系统 (6级: Verbose/Debug/Info/Warning/Error/Fatal)，模块 Tag 过滤，文件轮转，平台适配 |
-| `Timer.cs` | `KTimer` / `KTimerManager` | 定时器系统，支持循环/暂停/停止 |
-| `Variant.cs` | `Variant` | 通用变体类型 |
-| `MathExtension.cs` | — | 数学扩展方法 |
-| `GameObjectExtensions.cs` | — | GameObject 扩展方法 |
-| `SerializeType.cs` | `SerializeType` | 类型序列化辅助 |
-| `KConstraint.cs` | — | 约束系统 |
-| `Selection2D.cs` | — | 2D 选择辅助 |
-| `Utility.cs` | — | 通用工具方法 |
+| `Services/` | `IService` / `ServiceLocator` / `KSingleton<T>` / `ILogService` / `LogLevel` | 服务契约、静态服务注册中心、纯 C# 单例基类、日志接口 |
+| `Events/` | `KSignal` / `Subscriber` / `EventBus` / `IEvent` | 点对点信号（0–4 参数）+ 全局事件总线 + 订阅管理器 |
+| `Commands/` | `Command` / `CommandQueue` | 命令模式：优先级 + 三种结果状态 |
+| `Async/` | `KCoroutine` / `CoroutineHandler` / `CoroutineManager` / `Wait` | 不依赖 MonoBehaviour 的协程系统（暂停/恢复/多时机） |
+| `Pooling/` | `CSharpPool<T>` | 纯 C# 泛型对象池 |
+| `FSM/` | `KStateMachine` | 轻量状态机 |
 
-### 2.2 Core Layer — 核心层
+### 2.2 Unity Layer — 引擎适配
 
-| 文件/目录 | 类 | 说明 |
+| 目录 | 类/接口 | 说明 |
 |---|---|---|
-| `GameCore.cs` | `KGameCore` | 全局核心单例：Module 容器 + GameMode 管理 + Timer + JSON 初始化 |
-| `GameCoreProxy.cs` | `GameCoreProxy` | MonoBehaviour 代理：驱动 FixedUpdate + 场景加载 |
-| `GameMode.cs` | `GameMode` | 场景生命周期 (Awake→Init→Start→End)，持久化数据 |
-| `Module.cs` | `TModule<T>` / `IModule` | 可热插拔模块基类，自带协程管理 |
-| `IGameModeEventListener.cs` | `IGameModeEventListener` | GameMode 事件监听接口 |
-| `GameCoreConfig.cs` | `GameCoreConfig` | 核心配置 ScriptableObject |
-| `Subscriber/` | `KSignal<T>` / `Subscriber` | 泛型信号 (0-4参数) + 订阅管理器 (IDisposable) |
-| `Coroutine/` | `KCoroutine` / `CoroutineManager` | 不依赖 MonoBehaviour 的协程系统 (暂停/恢复/多时机) |
-| `Fsm/` | `StateMachine` / `HybridStateMachine` | 有限状态机：层级状态、条件转换 |
-| `BehaviorTree/` | Fluid BehaviorTree | 行为树：Decorators / TaskParents / Tasks |
-| `Cmd/` | `Command` / `CommandQueue` | 命令模式：优先级 + 三种结果状态 |
-| `Action/` | `KActionBase` / `KActionSequence` | 动作序列：顺序执行 + 时间轴插入 |
+| `Hosting/` | `KGameCore` / `TModule<T>` / `SceneController` / `GameCoreProxy` / `ModuleLocator` / `IPersistentRoot` | 模块容器、可热插拔模块、场景生命周期、驱动代理 |
+| `Foundation/` | `PersistentSingleton<T>` / `InstanceBehaviour<T>` / `KConstraint` / `Selection2D` | MonoBehaviour 单例与组件基类 |
+| `Time/` | `KTime` / `KTimer` / `KTimerManager` | 时间缩放与定时器 |
+| `Logging/` | `EnhancedLog` | 分级日志（6 级）、模块 Tag 过滤、文件轮转 |
+| `Attributes/` | `[AutoBind]` / `[DisplayName]` | 自动绑定与编辑器显示名 |
+| `Serialization/` | `Variant` / `SerializeType<T>` | 通用变体类型与序列化辅助 |
+| `Extensions/` | `GameObjectExtensions` / `MathExtension` / `DoTweenExtension` | 扩展方法 |
+| `Utilities/` | `Utility` / `DoubleArray<T>` | 通用工具方法 |
+| `Components/` | `AutoRotate` / `RandomAudioClip` | 通用小工具组件 |
+| `Version/` | `KVersion` / `VersionConfig` | 框架版本 + 游戏版本 + 构建信息 |
 
-### 2.3 Module Layer — 功能模块层
+### 2.3 Module Layer — 功能模块
 
 | 模块 | 管理器 | 接口 | 单例类型 | 核心功能 |
 |---|---|---|---|---|
@@ -180,38 +170,37 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 | **Settings** | `SettingsService` | `ISettingsService` | KSingleton | 游戏设置 (画质/分辨率/全屏)，JSON 持久化 |
 | **PersistentData** | `PersistentDataService` | `IPersistentDataService` | KSingleton | JSON 存档系统、Base64 加密、场景数据 |
 | **Scene** | `SceneService` | `ISceneService` | PersistentSingleton | 场景加载/卸载/叠加、Addressables/Built-in、历史记录/GoBack、过渡效果 |
-| **EventBus** | `EventBus` | `IEventBusService` | KSingleton | 全局类型路由事件、优先级/粘性/一次性订阅、Subscriber 集成 |
+| **ObjectPool** | `PoolService` | `IPoolService` | PersistentSingleton | 多 Prefab 注册中心 + 实例跟踪 + IPoolable 回调 |
+| **Vfx** | `VfxService` | `IVfxService` | PersistentSingleton | 特效对象池管理与播放 |
+| **Camera** | `CameraInstance` | `ICameraService` | PersistentSingleton | 相机单例管理 |
 | **Debug** | `DebugService` | `IDebugService` | PersistentSingleton | Gizmos 绘制管理、调试 GUI |
-| **Version** | `KVersion` (static) | — | 静态类 | 框架版本 + 游戏版本 + 构建信息 |
 
-### 2.4 FrameworkExt Layer — 游戏扩展层
+### 2.4 Extensions Layer — 可选扩展
 
 | 模块 | 类 | 说明 |
 |---|---|---|
 | **Player** | `ControllerBase` | 玩家输入控制器，内置 CommandQueue |
 | **Player** | `PlayerModule` | 玩家控制器注册管理 |
-| **Vfx** | `VfxService` / `IVfxService` | 特效对象池管理 |
 | **HUD** | `HUDBase` | HUD 基类 |
-| **Camera** | `CameraInstance` | 相机单例管理 |
 
 ### 2.5 工具 & 辅助
 
 | 目录 | 说明 |
 |---|---|
-| `ObjectPool/` | `GameObjectPool` (单 Prefab 池 + IPoolable 回调) · `PoolService` (多 Prefab 注册中心 + 实例跟踪) · `CSharpPool<T>` (纯 C# 泛型池) · `ListPool/DictionaryPool/HashSetPool` 集合池 |
-| `Attributes/` | `[AutoBind]` 自动绑定组件 + `[DisplayName]` 编辑器显示名 |
-| `JsonConverter/` | Newtonsoft.Json 的 Unity 类型转换器 (Vector/Quaternion/Addressables 等) |
-| `Audio/` | `AudioConfig` 音频配置 ScriptableObject (Mixer 参数名、SoundCategory 预设) |
-| `SerializedCollections/` | 可序列化字典 |
-| `Utils/` | `AutoRotate` / `RandomAudioClip` 工具组件 |
-| `Tests/` | 简易单元测试 (Signal + PersistentData) |
-| `Editor/` | 自定义 Inspector、PropertyDrawer、编辑器工具 |
+| `Runtime/Modules/ObjectPool/` | `GameObjectPool`（单 Prefab 池 + IPoolable 回调）· `PoolService`（多 Prefab 注册中心） |
+| `Runtime/Core/Pooling/` | `CSharpPool<T>`（纯 C# 泛型池）· 集合池 |
+| `Runtime/Unity/Attributes/` | `[AutoBind]` 自动绑定组件 + `[DisplayName]` 编辑器显示名 |
+| `Runtime/ThirdParty/JsonConverter/` | Newtonsoft.Json 的 Unity 类型转换器（Vector/Quaternion/Addressables 等） |
+| `Runtime/ThirdParty/SerializedCollections/` | 可序列化字典 |
+| `Runtime/Unity/Components/` | `AutoRotate` / `RandomAudioClip` 工具组件 |
+| `Tests/` | 简易单元测试（Signal / EventBus / Coroutine / Pool / FSM） |
+| `Editor/` | 自定义 Inspector、PropertyDrawer、工具窗口 |
 
 ---
 
 ## 三、架构优点
 
-1. **分层清晰** — Foundation → Core → Module → FrameworkExt 四层职责分明
+1. **分层清晰** — Core → Unity → Modules → Extensions 四层职责分明，依赖单向
 2. **Service Locator + 接口隔离** — 支持 Mock 测试和运行时服务替换，同时保持向后兼容
 3. **信号系统完善** — KSignal（点对点）+ EventBus（全局广播）双轨通信
 4. **模块可热插拔** — TModule 运行时动态装卸
@@ -252,28 +241,45 @@ KFramework/                      # UPM 包根目录
 ├── CHANGELOG.md                 # 版本变更日志
 ├── README.md
 ├── Runtime/                     # 运行时代码 (KFramework.asmdef)
-│   ├── Core/                    #   引擎无关层（纯 C#，不引用引擎）
-│   │   ├── Coroutine/           #     自研协程核心（KCoroutine/CoroutineHandler/CoroutineManager/Wait）
-│   │   ├── EventBus/            #     IEvent（事件契约标记）
-│   │   ├── Foundation/          #     IService / ILogService（纯接口）
-│   │   └── ObjectPool/          #     CSharpPool<T>
-│   ├── Core.Unity/              #   引擎绑定层（KFramework 自有、依赖引擎的代码）
-│   │   ├── GameCore/            #     KGameCore、GameMode、GameCoreProxy、TModule、ModuleLocator
-│   │   ├── Foundation/          #     KSingleton/PersistentSingleton/ServiceLocator/EnhancedLog/Variant
-│   │   ├── Action/ Attributes/ EventBus/ Subscriber/ ObjectPool/ Coroutine/ Cmd/
-│   │   ├── Kit/                 #     UI/Sound/Asset/Camera/HUD/Unit/Player/Scene/Config/Debug/PersistentData/Settings/Vfx
-│   │   ├── Utils/ Version/ Extensions/
-│   │   └── ThirdParty/          #   依赖引擎的内嵌三方（namespace/asmdef 不变）
-│   │       ├── Fsm/             #     UnityHFSM
-│   │       ├── FluidBehaviorTree/#     Fluid BT
-│   │       ├── JsonConverter/   #     Newtonsoft UnityConverters
-│   │       ├── SerializedCollections/
-│   │       └── Plugins/         #     DOTween Modules
+│   ├── Core/                    #   引擎无关内核（纯 C#，不引用 UnityEngine）
+│   │   ├── Services/            #     IService · ServiceLocator · KSingleton<T> · ILogService · LogLevel
+│   │   ├── Events/              #     IEvent · EventBus · Signal · Subscriber
+│   │   ├── Commands/            #     Command · CommandQueue
+│   │   ├── Async/               #     KCoroutine · CoroutineHandler · CoroutineManager · Wait
+│   │   ├── Pooling/             #     CSharpPool<T>
+│   │   └── FSM/                 #     KStateMachine
+│   ├── Unity/                   #   引擎适配层
+│   │   ├── Hosting/             #     KGameCore · GameCoreProxy · TModule<T> · SceneController
+│   │   ├── Foundation/          #     PersistentSingleton · InstanceBehaviour · KConstraint · Selection2D
+│   │   ├── Time/                #     KTime · KTimer · KTimerManager
+│   │   ├── Logging/             #     EnhancedLog
+│   │   ├── Attributes/          #     AutoBind · DisplayName
+│   │   ├── Serialization/       #     Variant · SerializeType
+│   │   ├── Extensions/          #     GameObjectExtensions · MathExtension · DoTweenExtension
+│   │   ├── Utilities/           #     Utility · DoubleArray<T>
+│   │   ├── Components/          #     AutoRotate · RandomAudioClip
+│   │   └── Version/             #     KVersion · VersionConfig
+│   ├── Modules/                 #   通用功能模块
+│   │   └── Assets/ Camera/ Config/ Debug/ ObjectPool/ PersistentData/ Scene/ Settings/ Sound/ UI/ Vfx/
+│   ├── Extensions/              #   可选游戏扩展
+│   │   ├── HUD/                 #     HUDBase
+│   │   └── Player/              #     ControllerBase · PlayerModule
+│   └── ThirdParty/              #   内嵌三方（namespace/asmdef 不变）
+│       ├── Fsm/                 #     UnityHFSM
+│       ├── BehaviorTree/        #     CleverCrow Fluid BT
+│       ├── JsonConverter/       #     Newtonsoft UnityConverters
+│       ├── SerializedCollections/
+│       └── Plugins/             #     DOTween Modules
 ├── Editor/                      # 编辑器扩展 (KFramework.Editor.asmdef)
+│   ├── Drawers/                 #     PropertyDrawer
+│   ├── Inspectors/              #     CustomEditor
+│   ├── Utilities/               #     KEditorGUILayout · KGizmos · KEditorSubscriber
+│   ├── ToolsWindow/             #     KFramework 工具窗口
+│   └── ThirdParty/              #     DOTween 预编译编辑器插件
 ├── Tests/                       # 测试 (KFramework.Tests.asmdef)
 │   └── Runtime/
 ├── Documentation~/              # 设计文档 (Unity 忽略)
-└── Samples~/                    # 示例 (Unity 忽略)
+└── Samples~/                    # 示例 (Unity 忽略，不参与构建)
 ```
 
 ---

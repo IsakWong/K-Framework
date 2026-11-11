@@ -5,7 +5,7 @@
 using NUnit.Framework;
 using FSM;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// FSM StateMachine（层次化有限状态机）的纯 C# 测试集。

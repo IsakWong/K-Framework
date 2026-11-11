@@ -8,17 +8,12 @@ KFramework/
 ├── LICENSE                   # MIT 许可证
 ├── CHANGELOG.md              # 版本变更日志
 ├── README.md
-├── Runtime/                  # 运行时代码
-│   ├── KFramework.asmdef
-│   ├── Foundation/           # 基础层（Singleton, ServiceLocator, Log）
-│   ├── Core/                 # 核心层（KGameCore, GameMode, TModule）
-│   ├── Sound/                # 音频系统
-│   ├── UI/                   # UI 管理
-│   ├── ObjectPool/           # 对象池
-│   ├── EventBus/             # 事件总线
-│   ├── Fsm/                  # 状态机
-│   ├── BehaviorTree/         # 行为树
-│   └── ...                   # 更多模块
+├── Runtime/                  # 运行时代码（KFramework.asmdef）
+│   ├── Core/                 #   引擎无关内核（EventBus / Command / 协程 / 对象池 / 状态机）
+│   ├── Unity/                #   引擎适配层（KGameCore / TModule / SceneController / 基础组件）
+│   ├── Modules/              #   功能模块（UI / Sound / Asset / Config / Scene / Vfx ...）
+│   ├── Extensions/           #   可选扩展（HUD / Player）
+│   └── ThirdParty/           #   内嵌三方（namespace / asmdef 不变）
 ├── Editor/                   # 编辑器扩展
 ├── Tests/                    # 测试
 ├── Documentation~/           # 设计文档（Unity 忽略）
@@ -68,15 +63,16 @@ KGameCore.RequireSystem<MyModule>();  // 获取或自动创建
 KGameCore.SystemAt<MyModule>();       // 获取，不存在返回 null
 ```
 
-## GameMode 场景生命周期
+## SceneController 场景生命周期
 
 ```csharp
-public class MyGameMode : GameMode
+public class MySceneController : SceneController
 {
-    public override IEnumerator Init()     { /* 初始化 */ }
-    public override IEnumerator Start()    { /* 开始游戏 */ }
-    public override IEnumerator End()      { /* 结束游戏 */ }
+    public override void OnSceneAwake()                  { /* 场景唤醒 */ }
+    protected override IEnumerator OnSceneInitialize()   { /* 异步初始化 */ }
+    public override IEnumerator OnSceneStart()           { /* 开始游戏 */ }
+    public override void OnSceneEnd()                    { /* 结束清理 */ }
 }
 ```
 
-生命周期：`Awake → Init → Start → End`
+生命周期：`Awake → OnSceneAwake → InitializeScene → OnSceneInitialize → OnSceneStart`，`OnSceneRestart` 可重开，`OnSceneEnd` 在 `OnDestroy` 时调用。

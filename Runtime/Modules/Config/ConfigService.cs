@@ -1,0 +1,38 @@
+using System;
+using AYellowpaper.SerializedCollections;
+using UnityEngine;
+
+namespace KFramework
+{
+    public class ConfigObject : ScriptableObject
+    {
+    }
+
+    public class ConfigService : KSingleton<ConfigService>, IConfigService
+    {
+        /// <summary>
+        /// 全局配置文件位置。业务在 GameCore.OnInit() 中设置。
+        /// </summary>
+        public string ConfigPrefix = "Assets/Config/";
+
+        public SerializedDictionary<string, ConfigObject> AllConfigs = new();
+
+        protected override void OnServiceInit()
+        {
+            ServiceLocator.Register<IConfigService>(this);
+        }
+
+        public T GetConfig<T>(string name="") where T : ConfigObject
+        {
+            if (String.IsNullOrEmpty(name))
+                name = (typeof(T).Name);
+            if (!AllConfigs.ContainsKey(name))
+            {
+                var asset = AssetService.Instance.Load<T>($"{ConfigPrefix}{name}.asset");
+                AllConfigs[name] = asset;
+                return asset;
+            }
+            return AllConfigs[name] as T;
+        }
+    }
+}

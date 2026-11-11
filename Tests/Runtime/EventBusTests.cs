@@ -5,7 +5,7 @@
 using System;
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// EventBus（全局事件总线）的纯 C# 测试集。

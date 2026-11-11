@@ -5,7 +5,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// CSharpPool（纯 C# 对象池）的测试集。

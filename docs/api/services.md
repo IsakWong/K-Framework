@@ -47,6 +47,6 @@ if (ServiceLocator.TryGet<ISoundService>(out var sound))
 |------|----------|------|
 | KSingleton | 首次访问创建，Application.Quit 销毁 | 纯 C# 服务 |
 | PersistentSingleton | Awake 创建，DontDestroyOnLoad | MonoBehaviour 服务 |
-| TModule\<T\> | Awake 自动注册，随 GameMode 销毁 | 可热插拔模块 |
+| TModule\<T\> | 首次 `RequireModule` 时创建，随 KGameCore 销毁 | 可热插拔模块 |
 
 所有 Manager 在构造或 Awake 时自动注册到 `ServiceLocator`。

@@ -9,7 +9,6 @@
 | 1 | **InputManager（输入管理）** | `ControllerBase` 引用了 Unity InputSystem 但无统一输入管理层。缺少输入映射切换、按键重绑定、多设备支持、输入缓冲 | 封装 InputSystem 的 `PlayerInput`，提供 `IInputService` 接口，支持 Action Map 切换和运行时重绑定 |
 | 2 | **NetworkManager（网络模块）** | 完全无网络代码。联机游戏需要 HTTP 请求、WebSocket、状态同步/帧同步 | 至少提供 `INetworkService` 抽象 + HTTP 客户端（UnityWebRequest 封装）；高级可选 WebSocket/Netcode |
 | 3 | **异步任务管理** | `AssetService` 用了 async/await 但无统一的异步任务管理。缺少取消（CancellationToken）、超时、重试、并发控制 | 提供 `AsyncTaskRunner`：支持 CancellationToken 传播、超时包装、并发限制队列 |
-| 4 | **命名空间规范化** | 154 个文件使用 `Framework.*`，但仍有部分类在全局命名空间 | 统一为 `KFramework.*` 命名空间层级 |
 
 ### 中优先级 — 正式上线前应补全
 
@@ -36,20 +35,19 @@
 
 | # | 问题 | 严重度 | 现状 | 建议 |
 |---|---|---|---|---|
-| 1 | **缺少命名空间** | 🟡中 | 大量类在全局命名空间 | 统一 `KFramework.*` 命名空间（物理目录已按 Core/Core.Unity 分桶，见 CLAUDE.md「项目结构」；本轮只收编 namespace，JASA 侧需补 using） |
-| 2 | **线程安全** | 🟢低 | 所有 Manager 无线程保护 | 加锁或标注 `[MainThread]` 限制 |
-| 3 | **硬编码路径** | 🟢低 | `UIService.UIPrefix` / `ConfigService.ConfigPrefix` | 已改为实例属性，业务在 GameCore.OnInit() 中配置 |
-| 4 | **测试覆盖不足** | 🟡中 | 仅 Signal + PersistentData 有简易测试 | 利用 ServiceLocator + Mock 补充单元测试 |
+| 1 | **线程安全** | 🟢低 | 所有 Manager 无线程保护 | 加锁或标注 `[MainThread]` 限制 |
+| 2 | **硬编码路径** | 🟢低 | `UIService.UIPrefix` / `ConfigService.ConfigPrefix` | 已改为实例属性，业务在 GameCore.OnInit() 中配置 |
+| 3 | **测试覆盖不足** | 🟡中 | 仅 Signal + PersistentData 有简易测试 | 利用 ServiceLocator + Mock 补充单元测试 |
 
 ## 推荐改进路线图
 
 ```
 Phase 1（核心补全）         Phase 2（质量提升）         Phase 3（功能扩展）
- ├─ InputManager            ├─ 命名空间规范化           ├─ 本地化模块
- ├─ 异步任务管理            ├─ 单元测试覆盖             ├─ 红点系统
- └─ HTTP 网络客户端         ├─ GameMode 解耦业务        ├─ 引导系统
-                            └─ 路径配置化               ├─ Camera 管理增强
+ ├─ InputManager            ├─ 单元测试覆盖             ├─ 本地化模块
+ ├─ 异步任务管理            ├─ SceneController 解耦业务 ├─ 红点系统
+ └─ HTTP 网络客户端         └─ 路径配置化               ├─ 引导系统
+                                                        ├─ Camera 管理增强
                                                         └─ 热更新流程
 ```
 
-> 已完成：C# 通用对象池（v1.5.0）· 音频系统全面重构（v1.6.0）· UPM 包结构（v1.6.0）
+> 已完成：C# 通用对象池（v1.5.0）· 音频系统全面重构（v1.6.0）· UPM 包结构（v1.6.0）· 目录分层与命名空间收敛（v2.1.0）

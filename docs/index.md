@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 🧩
     title: 分层架构
-    details: Foundation → Core → Module → FrameworkExt 四层职责分明，依赖递减
+    details: Core → Unity → Modules → Extensions 四层职责分明，依赖单向
   - icon: 🔌
     title: 接口隔离
     details: Service Locator + 接口抽象，支持 Mock 测试和运行时服务替换

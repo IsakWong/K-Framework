@@ -1,0 +1,537 @@
+using System;
+using System.Collections.Generic;
+using DG.Tweening;
+using UnityEngine;
+using UnityEngine.Audio;
+
+
+namespace KFramework
+{
+public class SoundService : PersistentSingleton<SoundService>, ISoundService
+{
+    // ─── SFX Pool (via PoolService) ───
+    private readonly List<SoundEmitter> activeSoundEmitters = new();
+    public readonly LinkedList<SoundEmitter> FrequentSoundEmitters = new();
+
+    private SoundEmitter soundEmitterPrefab;
+    [SerializeField] private int poolPreloadCount = 10;
+    [SerializeField] private int maxSoundInstances = 30;
+
+    [Tooltip("未指定 SoundCategory 时使用的默认 AudioSource 参数")]
+    [SerializeField] public SoundData DefaultSoundData = new();
+
+    // ─── Per-SoundCategory Concurrency Tracking ───
+    // Key = SoundCategory.GetInstanceID(), tracks active count and last play time
+    private readonly Dictionary<int, int> _activeCountByCategory = new();
+    private readonly Dictionary<int, float> _lastPlayTimeByCategory = new();
+    // 被分类限流（冷却 / 并发上限）拒掉的累计次数，供调试面板展示
+    private readonly Dictionary<int, int> _droppedCountByCategory = new();
+
+    private bool _poolInitialized;
+
+    protected override void Awake()
+    {
+        base.Awake();
+        EnsurePoolInitialized();
+        EnsureAudioListener();
+    }
+
+    /// <summary>
+    /// 保证有且只有一个监听器，且它不会被随后的销毁带走。
+    ///
+    /// ⚠️ 不能直接用 <c>FindAnyObjectByType</c> 认领场景里的监听器：场景版本的 SoundService 替换旧实例时，
+    /// <see cref="PersistentSingleton{T}"/> 走的是 <c>Destroy(existing.gameObject)</c>，而 Destroy 要等到帧末才执行 ——
+    /// 此刻旧实例的监听器仍然查得到，一旦被认领过来，帧末就随旧宿主一起消失，之后整局都没有监听器
+    /// （表现为 "There are no audio listeners in the scene" 持续刷屏、所有音效静音）。
+    /// 所以这里跳过挂在**另一个** SoundService 下的监听器，自己新建一个。
+    /// </summary>
+    private void EnsureAudioListener()
+    {
+        if (AudioListener) return;
+
+        var listeners = FindObjectsOfType<AudioListener>(true);
+        for (int i = 0; i < listeners.Length; i++)
+        {
+            var owner = listeners[i].GetComponentInParent<SoundService>();
+            if (owner != null && owner != this) continue;
+
+            AudioListener = listeners[i];
+            break;
+        }
+
+        if (!AudioListener)
+        {
+            var listenerObject = new GameObject("[AudioListener]");
+            AudioListener = listenerObject.AddComponent<AudioListener>();
+            // 挂在服务节点下，随单例一起销毁
+            listenerObject.transform.SetParent(transform, false);
+        }
+    }
+
+    protected override void OnServiceInit()
+    {
+        ServiceLocator.Register<ISoundService>(this);
+    }
+
+    public SoundBuilder CreateSoundBuilder()
+    {
+        return new SoundBuilder(this);
+    }
+
+    /// <summary>
+    /// 检查音效是否可以播放（并发数、冷却时间、全局限制）
+    /// category 为 null 时始终允许播放
+    /// </summary>
+    public bool CanPlaySound(SoundCategory category)
+    {
+        if (category == null) return true;
+        int key = category.GetInstanceID();
+
+        // Per-category cooldown
+        if (category.cooldown > 0f)
+        {
+            if (_lastPlayTimeByCategory.TryGetValue(key, out float lastTime))
+            {
+                if (Time.unscaledTime - lastTime < category.cooldown)
+                {
+                    RecordDropped(key);
+                    return false;
+                }
+            }
+        }
+
+        // Per-category concurrent limit
+        if (category.maxConcurrent > 0)
+        {
+            _activeCountByCategory.TryGetValue(key, out int count);
+            if (count >= category.maxConcurrent)
+            {
+                RecordDropped(key);
+                return false;
+            }
+        }
+
+        // Global frequent sound limit
+        if (category.frequentSound)
+        {
+            if (FrequentSoundEmitters.Count >= maxSoundInstances)
+            {
+                var oldest = FrequentSoundEmitters.First;
+                if (oldest?.Value != null)
+                {
+                    oldest.Value.Stop();
+                    return true;
+                }
+                RecordDropped(key);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // ─── Per-Key Throttle ───
+    // Key = 调用方给的逻辑音效名（如 "damage" / "interrupt"），而不是 Clip：
+    // 同一逻辑音效常常随机取多条变体，按 Clip 限流挡不住「一次事件 5 条全响」。
+    private readonly Dictionary<string, float> _throttleLastPlay = new();
+
+    /// <summary>
+    /// 同名逻辑音效的最小间隔检查：窗口内同 key 只放行一次，用于防爆音。
+    /// 返回 true 表示放行，同时记录本次时间。
+    /// </summary>
+    public bool TryPassThrottle(string key, float cooldown)
+    {
+        if (string.IsNullOrEmpty(key) || cooldown <= 0f) return true;
+
+        if (_throttleLastPlay.TryGetValue(key, out float lastTime)
+            && Time.unscaledTime - lastTime < cooldown)
+            return false;
+
+        _throttleLastPlay[key] = Time.unscaledTime;
+        return true;
+    }
+
+    /// <summary>
+    /// 计算并发衰减后的实际音量
+    /// </summary>
+    public float GetEffectiveVolume(SoundCategory category, float baseVolume)
+    {
+        if (category == null || category.volumeDecayPerInstance <= 0f)
+            return baseVolume;
+
+        int key = category.GetInstanceID();
+        _activeCountByCategory.TryGetValue(key, out int count);
+        float decayed = baseVolume - category.volumeDecayPerInstance * count;
+        return Mathf.Max(decayed, 0.05f);
+    }
+
+    /// <summary>
+    /// 记录音效开始播放
+    /// </summary>
+    public void TrackSoundStart(SoundCategory category)
+    {
+        if (category == null) return;
+        int key = category.GetInstanceID();
+        _activeCountByCategory.TryGetValue(key, out int count);
+        _activeCountByCategory[key] = count + 1;
+        _lastPlayTimeByCategory[key] = Time.unscaledTime;
+    }
+
+    /// <summary>
+    /// 记录音效结束播放
+    /// </summary>
+    public void TrackSoundEnd(SoundCategory category)
+    {
+        if (category == null) return;
+        int key = category.GetInstanceID();
+        if (_activeCountByCategory.TryGetValue(key, out int count))
+        {
+            _activeCountByCategory[key] = Mathf.Max(0, count - 1);
+        }
+    }
+
+    /// <summary>
+    /// 某个分类累计被限流（冷却 / 并发上限 / 频繁音效上限）拒掉的播放次数，进程内累计。
+    /// 供 Sound 调试面板展示。
+    /// </summary>
+    public int GetDroppedCount(SoundCategory category)
+    {
+        if (category == null) return 0;
+        _droppedCountByCategory.TryGetValue(category.GetInstanceID(), out int count);
+        return count;
+    }
+
+    private void RecordDropped(int categoryKey)
+    {
+        _droppedCountByCategory.TryGetValue(categoryKey, out int count);
+        _droppedCountByCategory[categoryKey] = count + 1;
+    }
+
+    public SoundEmitter Get()
+    {
+        // 正常情况下启动预热已确保池就绪；这里兜底一次，避免 Awake 早于预热时漏初始化。
+        EnsurePoolInitialized();
+
+        if (soundEmitterPrefab == null)
+        {
+            Debug.LogError("[SoundService] 音效池未就绪：GameCoreConfig.DefaultSoundEmitter 未配置，" +
+                           "或 Boot 批次（Assets/Config/GameCoreConfig.asset）尚未加载。");
+            return null;
+        }
+
+        var emitter = PoolService.Instance.Get(soundEmitterPrefab);
+        emitter.OnFinished = HandleEmitterFinished;
+        activeSoundEmitters.Add(emitter);
+        return emitter;
+    }
+
+    public void ReturnToPool(SoundEmitter soundEmitter)
+    {
+        // Domain tracking — must happen before IPoolable.OnReturnToPool clears Node
+        if (soundEmitter.Node?.List != null)
+            FrequentSoundEmitters.Remove(soundEmitter.Node);
+
+        activeSoundEmitters.Remove(soundEmitter);
+        PoolService.Instance.Release(soundEmitter);
+    }
+
+    public void StopAll()
+    {
+        var temp = ListPool<SoundEmitter>.Get();
+        temp.AddRange(activeSoundEmitters);
+        foreach (var soundEmitter in temp)
+        {
+            soundEmitter.Stop();
+        }
+        ListPool<SoundEmitter>.Release(temp);
+    }
+
+    /// <summary>
+    /// 初始化音效池。启动期核心配置可能尚未预热（Awake 早于预热），此时安全跳过；
+    /// 预热完成后由启动流程再次调用。幂等。
+    /// </summary>
+    public void EnsurePoolInitialized()
+    {
+        if (_poolInitialized) return;
+
+        var config = GameCoreConfig.Instance();
+        if (config == null || config.DefaultSoundEmitter == null) return;
+
+        soundEmitterPrefab = config.DefaultSoundEmitter.GetComponent<SoundEmitter>();
+        if (poolPreloadCount > 0)
+            PoolService.Instance.Preload(soundEmitterPrefab, poolPreloadCount);
+
+        _poolInitialized = true;
+    }
+
+    private void HandleEmitterFinished(SoundEmitter emitter)
+    {
+        TrackSoundEnd(emitter.Category);
+        ReturnToPool(emitter);
+    }
+
+    // ─── AudioListener ───
+
+    public AudioListener AudioListener;
+    public GameObject ListenerTarget;
+
+    public void InitAudioListener(GameObject obj)
+    {
+        ListenerTarget = obj;
+    }
+
+    private void LateUpdate()
+    {
+        if (ListenerTarget)
+        {
+            AudioListener.transform.position = ListenerTarget.transform.position;
+        }
+    }
+
+    // ─── Music System ───
+
+    private const float crossFadeTime = 1.5f;
+    private float fading;
+    private AudioSource currentMusic;
+    private AudioSource previousMusic;
+
+    /// <summary>当前正在播放的音乐片段（用于外部判断是否需要切换）</summary>
+    public AudioClip CurrentMusicClip => currentMusic ? currentMusic.clip : null;
+    private readonly LinkedList<AudioSource> musicStack = new();
+    private float musicPitch = 1f;
+    [SerializeField] private AudioMixerGroup musicMixerGroup;
+    public AudioMixerGroup MusicMixerGroup { get => musicMixerGroup; set => musicMixerGroup = value; }
+
+    /// <summary>当前音乐播放音高（1 = 原速，可运行时补间，如子弹时间慢放）</summary>
+    public float MusicPitch
+    {
+        get => musicPitch;
+        set
+        {
+            musicPitch = value;
+            foreach (var source in musicStack)
+            {
+                if (source) source.pitch = value;
+            }
+        }
+    }
+
+    public void Clear()
+    {
+        foreach (var source in musicStack)
+        {
+            if (source) Destroy(source);
+        }
+        musicStack.Clear();
+        currentMusic = null;
+        previousMusic = null;
+    }
+
+    public void PopTrack()
+    {
+        previousMusic = musicStack.Last?.Value;
+        if (previousMusic)
+        {
+            musicStack.RemoveLast();
+            var toDestroy = previousMusic;
+            previousMusic = null;
+
+            currentMusic = musicStack.Last?.Value;
+            if (currentMusic)
+                currentMusic.Play();
+
+            fading = 0.001f;
+
+            DOVirtual.DelayedCall(crossFadeTime + 0.1f, () =>
+            {
+                if (toDestroy) Destroy(toDestroy);
+            });
+        }
+    }
+
+    public void PlayMusic(AudioClip clip, SoundCategory category = null, float volumeScale = 1.0f)
+    {
+        MusicVolume = volumeScale;
+        if (clip == null) return;
+        if (currentMusic && currentMusic.clip == clip) return;
+
+        previousMusic = musicStack.Last?.Value;
+
+        currentMusic = gameObject.AddComponent<AudioSource>();
+        currentMusic.clip = clip;
+        currentMusic.outputAudioMixerGroup = category?.mixerGroup ?? musicMixerGroup;
+        currentMusic.loop = true;
+        currentMusic.volume = 0;
+        currentMusic.pitch = musicPitch;
+        currentMusic.bypassListenerEffects = true;
+        currentMusic.Play();
+        musicStack.AddLast(currentMusic);
+
+        fading = 0.001f;
+    }
+
+    public float MusicVolume { get; set; } = 1.0f;
+    public float SFXVolume { get; set; } = 1.0f;
+
+    private void Update()
+    {
+        HandleCrossFade();
+        UpdateDucking();
+    }
+
+    private void HandleCrossFade()
+    {
+        if (fading <= 0f) return;
+
+        fading += Time.unscaledDeltaTime;
+        var fraction = Mathf.Clamp01(fading / crossFadeTime);
+        var logFraction = fraction.ToLogarithmicFraction();
+
+        if (previousMusic)
+            previousMusic.volume = Mathf.Max(0, MusicVolume * (1f - logFraction));
+
+        if (currentMusic)
+            currentMusic.volume = logFraction * MusicVolume;
+
+        if (fraction >= 1f)
+        {
+            fading = 0.0f;
+            if (previousMusic)
+            {
+                previousMusic.Stop();
+                Destroy(previousMusic);
+                previousMusic = null;
+            }
+        }
+    }
+
+    // ─── Convenient Play Methods ───
+
+    public SoundEmitter PlaySound(AudioClip clip, float volume = 1.0f, SoundCategory category = null)
+    {
+        if (clip == null) return null;
+
+        var emitter = CreateSoundBuilder()
+            .OverrideVolume(volume)
+            .OverrideClip(clip)
+            .Play(category);
+        return emitter;
+    }
+
+    public SoundEmitter PlaySound3D(AudioClip clip, Vector3 pos, SoundCategory category = null)
+    {
+        if (clip == null) return null;
+
+        var emitter = CreateSoundBuilder()
+            .With3DPosition(pos)
+            .OverrideClip(clip)
+            .Play(category);
+        return emitter;
+    }
+
+    // ─── Frame-Limited Playback ───
+
+    private readonly Dictionary<AudioClip, (SoundBuilder builder, SoundCategory category)> _frameLimitedEmitters = new();
+
+    private void FixedUpdate()
+    {
+        foreach (var kvp in _frameLimitedEmitters)
+        {
+            kvp.Value.builder.Play(kvp.Value.category);
+        }
+        _frameLimitedEmitters.Clear();
+    }
+
+    public void PlaySoundLimitFrame(AudioClip clip, Vector3 pos, SoundCategory category = null)
+    {
+        if (clip == null) return;
+
+        var builder = CreateSoundBuilder()
+            .With3DPosition(pos)
+            .OverrideClip(clip);
+
+        if (category?.mixerGroup != null)
+            builder.OverrideMixerGroup(category.mixerGroup);
+
+        _frameLimitedEmitters[clip] = (builder, category);
+    }
+
+    // ─── Mixer Volume Control ───
+
+    [SerializeField] private AudioMixer audioMixer;
+
+    public bool SetMixerVolume(string exposedParam, float linearVolume)
+    {
+        if (audioMixer == null) return false;
+        float dB = linearVolume > 0.0001f
+            ? Mathf.Log10(linearVolume) * 20f
+            : -80f;
+        return audioMixer.SetFloat(exposedParam, dB);
+    }
+
+    public float GetMixerVolume(string exposedParam)
+    {
+        if (audioMixer == null) return 1f;
+        if (audioMixer.GetFloat(exposedParam, out float dB))
+            return Mathf.Pow(10f, dB / 20f);
+        return 1f;
+    }
+
+    public void TransitionToSnapshot(AudioMixerSnapshot snapshot, float duration = 0.5f)
+    {
+        snapshot?.TransitionTo(duration);
+    }
+
+    public void TransitionToSnapshots(AudioMixerSnapshot[] snapshots, float[] weights, float duration = 0.5f)
+    {
+        if (audioMixer == null || snapshots == null) return;
+        audioMixer.TransitionToSnapshots(snapshots, weights, duration);
+    }
+
+    // ─── BGM Ducking ───
+
+    [Header("BGM Ducking")]
+    [SerializeField] private string bgmVolumeParam = "BGM_Volume";
+    [SerializeField] private float normalBgmDb = 0f;
+    [SerializeField] private float duckedBgmDb = -12f;
+    [SerializeField] private float duckAttackSpeed = 8f;
+    [SerializeField] private float duckReleaseSpeed = 2f;
+
+    private float _duckTimer;
+    private float _currentBgmDb;
+    private float _targetBgmDb;
+    private bool _duckingActive;
+
+    public void DuckBGM(float duration = 0.5f)
+    {
+        _targetBgmDb = duckedBgmDb;
+        _duckTimer = duration;
+        _duckingActive = true;
+    }
+
+    public void UnduckBGM()
+    {
+        _targetBgmDb = normalBgmDb;
+        _duckTimer = 0f;
+    }
+
+    private void UpdateDucking()
+    {
+        if (!_duckingActive || audioMixer == null) return;
+
+        if (_duckTimer > 0f)
+        {
+            _duckTimer -= Time.unscaledDeltaTime;
+            if (_duckTimer <= 0f)
+                _targetBgmDb = normalBgmDb;
+        }
+
+        float speed = (_targetBgmDb < _currentBgmDb) ? duckAttackSpeed : duckReleaseSpeed;
+        _currentBgmDb = Mathf.MoveTowards(_currentBgmDb, _targetBgmDb, speed * Time.unscaledDeltaTime);
+        audioMixer.SetFloat(bgmVolumeParam, _currentBgmDb);
+
+        if (Mathf.Approximately(_currentBgmDb, normalBgmDb) && _duckTimer <= 0f)
+            _duckingActive = false;
+    }
+}
+}

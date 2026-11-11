@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// DoubleArray&lt;T&gt;（二维数组）和 Utility 扩展方法的 EditMode 测试集。

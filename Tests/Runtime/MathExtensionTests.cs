@@ -2,11 +2,10 @@
 // Date: 2026/05/11
 // MathExtension 纯 C# 测试集
 
-using Framework.Foundation;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// MathExtension 数学工具函数的 EditMode 测试集。

@@ -4,7 +4,7 @@
 
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// Command 和 CommandQueue 的纯 C# 测试集。

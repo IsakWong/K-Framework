@@ -6,35 +6,36 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      Application Layer                              │
-│         GameMode 子类 / Controller 子类 / 业务逻辑                     │
+│                    Extensions Layer（可选扩展）                       │
+│   ControllerBase · PlayerModule · HUDBase                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                    FrameworkExt Layer（游戏扩展层）                     │
-│   PlayerModule · VfxService · HUD · Camera                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                     Module Layer（功能模块层）                          │
+│                     Modules Layer（功能模块）                          │
 │   UIService · SoundService · AssetService · ConfigService           │
-│   PersistentDataService · SettingsService · DebugService            │
-│   SceneService · EventBus · KVersion                                │
+│   SceneService · PoolService · VfxService · DebugService            │
+│   PersistentDataService · SettingsService · CameraInstance          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                      Core Layer（核心层）                              │
-│   KGameCore · GameCoreProxy · GameMode · TModule<T>                 │
-│   Signal/Subscriber · KTimer · Command · KCoroutine · FSM · BT     │
+│                      Unity Layer（引擎适配）                           │
+│   KGameCore · GameCoreProxy · SceneController · TModule<T>          │
+│   PersistentSingleton · KTime · EnhancedLog · Variant · AutoBind    │
 ├─────────────────────────────────────────────────────────────────────┤
-│                    Foundation Layer（基础层）                           │
-│   KSingleton · PersistentSingleton · ServiceLocator                 │
-│   EnhancedLog · Variant · MathExtension · AutoBind                  │
+│                       Core Layer（引擎无关）                           │
+│   KSingleton<T> · ServiceLocator · IService · ILogService           │
+│   KSignal/Subscriber · EventBus · Command · KCoroutine              │
+│   CSharpPool<T> · KStateMachine                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 物理目录（2026-09：按引擎依赖分桶）
+### 物理目录
 
-上图的语义分层不变，但 `Runtime/` 物理目录已按「是否依赖 UnityEngine」重构为两桶（详见 `CLAUDE.md` 项目结构）：
+目录划分与上图一一对应（详见 `CLAUDE.md` 项目结构）：
 
-- `Runtime/Core/` —— **引擎无关层**（纯 C#：自研协程核心、`CSharpPool<T>`、`IEvent`、`IService`/`ILogService`），不引用任何引擎代码。
-- `Runtime/Core.Unity/` —— **引擎绑定层**（`GameCore/`、`Foundation/`、`Action/`、`Kit/` 等所有依赖引擎的自有代码）+ `ThirdParty/`（依赖引擎的内嵌三方：UnityHFSM、Fluid BT、JsonConverter、SerializedCollections、DOTween Modules，各自 namespace / asmdef 不变）。
+- `Runtime/Core/` —— **引擎无关内核**（纯 C#：`IService` / `ServiceLocator` / `KSingleton<T>` / `KSignal` / `EventBus` / `Command` / `KCoroutine` / `CSharpPool<T>` / `KStateMachine`），不引用任何引擎代码。
+- `Runtime/Unity/` —— **引擎适配层**（`Hosting/`、`Foundation/`、`Time/`、`Logging/`、`Attributes/`、`Serialization/`、`Extensions/`、`Utilities/`、`Components/`、`Version/`），所有 `MonoBehaviour` / `ScriptableObject` 宿主都在这一层或更上层。
+- `Runtime/Modules/` —— **通用功能模块**（`Assets/`、`Camera/`、`Config/`、`Debug/`、`ObjectPool/`、`PersistentData/`、`Scene/`、`Settings/`、`Sound/`、`UI/`、`Vfx/`），接口、实现与组件同目录。
+- `Runtime/Extensions/` —— **可选游戏扩展**（`HUD/`、`Player/`）。
+- `Runtime/ThirdParty/` —— 内嵌三方（UnityHFSM、Fluid BT、JsonConverter、SerializedCollections、DOTween Modules），各自 namespace / asmdef 不变。
 
-**过渡态说明**：目录已按引擎依赖分桶，但命名空间尚未收敛（大量文件仍为全局或 `Framework.*`）。这是「物理分桶先行、命名空间收敛后置」的过渡，统一到 `KFramework.*` 见 TODO。
+命名空间与目录一致：框架自有代码统一为扁平 `KFramework`，Editor 为 `KFramework.Editor`，Tests 为 `KFramework.Tests`。
 
 ## 核心设计模式
 
@@ -56,13 +57,13 @@ K-Framework 采用 **4 层分层架构**，自下而上职责递增、依赖递�
 - **资源加载**：`AssetService` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
 - **对象池**：`PoolService` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
 - **协程**：`KCoroutine` 不依赖 MonoBehaviour，可在纯 C# 上下文使用
-- **命名空间**：代码在 `Framework.*` 下，部分遗留类在全局命名空间，新增代码统一用 `KFramework.*`
+- **命名空间**：框架自有代码统一为扁平 `KFramework`；Editor 为 `KFramework.Editor`；Tests 为 `KFramework.Tests`；内嵌三方保持各自 namespace
 
 ## 架构评价
 
 ### 优点
 
-1. **分层清晰** — Foundation → Core → Module → FrameworkExt 四层职责分明
+1. **分层清晰** — Core → Unity → Modules → Extensions 四层职责分明，依赖单向
 2. **Service Locator + 接口隔离** — 支持 Mock 测试和运行时服务替换
 3. **信号系统完善** — KSignal（点对点）+ EventBus（全局广播）双轨通信
 4. **模块可热插拔** — TModule 运行时动态装卸

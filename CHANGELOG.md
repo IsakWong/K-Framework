@@ -10,6 +10,12 @@
 - **移除 `Utility.DirectionBetweenUnit` / `DistanceBetweenGameUnit`、`VfxAPI.CreateVisualEffectAtUnit`** — 三个以 `UnityUnit` 为接收者的扩展/重载。
 - **移除 `GameMode.OnPlayerDeath` / `OnPlayerRespawn` 与 `IGameModeEventListener` 同名回调** — 无调用方的业务钩子。
 - **移除编辑器工具 `UnitMonitorPage`、`UnitBaseEditor`、运行期 `UnitDebugOverlay`** 及 `docs/modules/unit.md`。
+- **命名空间统一为 `KFramework`** — 框架自有代码从 global / `Framework.*` / `K1` 收敛到扁平 `KFramework`；Editor 程序集为 `KFramework.Editor`，Tests 为 `KFramework.Tests`；内嵌三方保持上游 namespace。业务侧引用框架类型需补 `using KFramework;`。
+- **目录结构重组** — `Runtime/` 由 `Core/` + `Core.Unity/` 双桶改为 `Core/`（引擎无关内核）、`Unity/`（引擎适配）、`Modules/`（功能模块）、`Extensions/`（HUD / Player）；`ThirdParty/` 提升到 `Runtime/` 顶层。模块内部平铺（接口 / 实现 / 组件同目录）。
+- **示例代码移出程序集** — `CoroutineExample` / `CoroutineTest` / `CoroutineHandlerTest` / `DirectionLightTweener` 移至 `Samples~/Examples/`，不再参与编译与打包。
+
+### 变更
+- **Editor 目录归类** — 属性绘制器入 `Editor/Drawers/`，自定义 Inspector 入 `Editor/Inspectors/`，编辑器工具入 `Editor/Utilities/`；DOTween 预编译编辑器插件移入 `Editor/ThirdParty/DOTween/`。
 
 ## [2.0.0] - 2026-09-20
 

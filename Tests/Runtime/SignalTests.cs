@@ -5,7 +5,7 @@
 using System;
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// KSignal / KSignal&lt;T&gt; / Subscriber 的纯 C# 测试（EditMode 兼容）。

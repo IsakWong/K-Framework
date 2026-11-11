@@ -5,7 +5,7 @@
 using System;
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// ServiceLocator（服务定位器）的纯 C# 测试集。

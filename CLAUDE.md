@@ -7,13 +7,15 @@ KFramework 是一个 Unity UPM 包（`com.isakwong.kframework`），面向 2D/3D
 ## 架构分层
 
 ```
-Foundation → Core → Module → FrameworkExt（游戏扩展层）
+Core（引擎无关内核） → Unity（引擎适配） → Modules（功能模块） → Extensions（可选扩展）
 ```
 
-- **Foundation**：`KSingleton<T>`、`PersistentSingleton<T>`、`ServiceLocator`、`EnhancedLog`、`KTimer`
-- **Core**：`KGameCore`（全局单例，Module 容器）、`GameMode`（场景生命周期）、`TModule<T>`（可热插拔模块）、`KSignal`/`Subscriber`、`KCoroutine`、FSM、BehaviorTree、`Command`、`KActionBase`
-- **Module**：`UIService`、`SoundService`、`AssetService`、`ConfigService`、`SceneService`、`EventBus`、`PersistentDataService`、`SettingsService`、`DebugService`
-- **FrameworkExt**：`ControllerBase`/`PlayerModule`、`VfxService`、`HUDBase`、`CameraInstance`
+- **Core**（`Runtime/Core/`）：纯 C# 内核，不含 `MonoBehaviour` / `ScriptableObject`。`IService`、`ServiceLocator`、`KSingleton<T>`、`KSignal`/`Subscriber`/`EventBus`、`KCoroutine`、`Command`、`CSharpPool<T>`、`KStateMachine`
+- **Unity**（`Runtime/Unity/`）：引擎适配层。`KGameCore`（模块容器）、`TModule<T>`（可热插拔模块）、`PersistentSingleton<T>`、`KTime`、`EnhancedLog`、`AutoBind`、`Variant`、`SceneController`
+- **Modules**（`Runtime/Modules/`）：通用功能模块。`UIService`、`SoundService`、`AssetService`、`ConfigService`、`SceneService`、`PersistentDataService`、`SettingsService`、`DebugService`、`PoolService`、`VfxService`、`CameraInstance`
+- **Extensions**（`Runtime/Extensions/`）：可选游戏扩展。`ControllerBase`/`PlayerModule`、`HUDBase`
+
+依赖方向严格单向：`Extensions → Modules → Unity → Core`。`Runtime/ThirdParty/` 为内嵌三方代码，保持各自 namespace 与 asmdef。
 
 ## 关键约定
 
@@ -23,18 +25,20 @@ Foundation → Core → Module → FrameworkExt（游戏扩展层）
 - **资源加载**：`AssetService` 封装 Addressables（Runtime）+ AssetDatabase（Editor），禁止 `Resources.Load()`
 - **对象池**：`PoolService` 统一管理，实现 `IPoolable` 接口接收回调。纯 C# 池用 `CSharpPool<T>`
 - **协程**：`KCoroutine` 不依赖 MonoBehaviour，可在纯 C# 上下文使用
-- **命名空间**：代码在 `Framework.*` 下，部分遗留类在全局命名空间，新增代码统一用 `KFramework.*`
+- **命名空间**：框架自有代码统一为扁平 `KFramework`；Editor 程序集为 `KFramework.Editor`；Tests 为 `KFramework.Tests`；`Runtime/ThirdParty/` 保持上游 namespace（`FSM`、`CleverCrow.Fluid.BTs`、`AYellowpaper.SerializedCollections`、`DG.Tweening` 等）
 
 ## 核心系统速查
 
-### KGameCore + GameMode + TModule
+### KGameCore + SceneController + TModule
 
 ```csharp
 KGameCore.RequireSystem<T>()  // 获取或自动创建模块
 KGameCore.SystemAt<T>()       // 获取，不存在返回 null
 
-// TModule<T>：Awake() 自动注册到 KGameCore
-// GameMode：Awake→Init→Start→End 场景生命周期
+// TModule<T>：首次 RequireModule 时创建并注册到 KGameCore
+// SceneController：场景生命周期宿主
+//   Awake → OnSceneAwake → InitializeScene → OnSceneInitialize → OnSceneStart
+//   OnSceneRestart / OnSceneEnd（OnDestroy 时调用）
 ```
 
 ### UI 系统
@@ -62,33 +66,51 @@ KGameCore.SystemAt<T>()       // 获取，不存在返回 null
 | Odin Inspector | 编辑器增强（可选） |
 | MoreMountains Feel | 反馈系统（可选） |
 
-## 项目结构（物理目录已按引擎依赖分桶，2026-09 起）
+## 项目结构
 
 ```
-Runtime/          KFramework.asmdef（运行时主程序集；包含下述 Core 与 Core.Unity 全部代码）
-  Core/                       引擎无关层（纯 C#，不含任何 UnityEngine / 引擎三方依赖）
-    Coroutine/                自研协程核心（KCoroutine / CoroutineHandler / CoroutineManager / Wait）
-    EventBus/                 IEvent（事件契约标记）
-    Foundation/               IService / ILogService（纯接口）
-    ObjectPool/               CSharpPool<T>（纯 C# 对象池）
-  Core.Unity/                 引擎绑定层（依赖 UnityEngine 的 KFramework 自有代码）
-    GameCore/                 原内核语义：KGameCore / GameMode / GameCoreProxy / TModule / ModuleLocator
-    Foundation/               KSingleton / PersistentSingleton / ServiceLocator / EnhancedLog / Variant 等引擎件
-    Action/ Attributes/ EventBus/ Subscriber/ ObjectPool/ Coroutine/ Cmd/     按系统原目录
-    Kit/                      功能模块聚合（UI / Sound / Asset / Camera / HUD / Player / Scene / Config / Debug / PersistentData / Settings / Vfx）
-    Utils/ Version/ Extensions/
-    ThirdParty/               依赖引擎的内嵌三方（各自 namespace / asmdef 不变）
-      Fsm/                    UnityHFSM（Inspiaaa，namespace FSM）
-      FluidBehaviorTree/      CleverCrow Fluid BT（namespace CleverCrow.Fluid.BTs）
-      JsonConverter/          Newtonsoft.Json.UnityConverters（+ 自有 AssetReferenceConverter）
-      SerializedCollections/  AYellowpaper（Runtime + Editor 两 asmdef）
-      Plugins/                DOTween Modules（DG.Tweening）
-Editor/          编辑器扩展（KFramework.Editor asmdef；含 DisplayNameDrawer 等）
+Runtime/          KFramework.asmdef（单一运行时程序集）
+  Core/                       引擎无关内核（纯 C#，不引用 UnityEngine）
+    Services/                 IService · ServiceLocator · KSingleton<T> · ILogService · LogLevel
+    Events/                   IEvent · EventBus · Signal · Subscriber
+    Commands/                 Command · CommandQueue
+    Async/                    KCoroutine · CoroutineHandler · CoroutineManager · Wait
+    Pooling/                  CSharpPool<T>
+    FSM/                      KStateMachine
+  Unity/                      引擎适配层（MonoBehaviour / ScriptableObject 宿主）
+    Hosting/                  KGameCore · GameCoreConfig · GameCoreProxy · IModule · TModule<T> · ModuleLocator · SceneController
+    Foundation/               PersistentSingleton · InstanceBehaviour · KConstraint · Selection2D
+    Time/                     KTime · KTimer · KTimerManager
+    Logging/                  EnhancedLog
+    Attributes/               AutoBindAttribute · AutoBinder · DisplayNameAttribute
+    Serialization/            Variant · SerializeType
+    Extensions/               GameObjectExtensions · MathExtension · DoTweenExtension
+    Utilities/                Utility · DoubleArray<T>
+    Components/               AutoRotate · RandomAudioClip
+    Version/                  KVersion · VersionConfig
+  Modules/                    通用功能模块（接口 / 实现 / 组件同目录）
+    Assets/ Camera/ Config/ Debug/ ObjectPool/ PersistentData/ Scene/ Settings/ Sound/ UI/ Vfx/
+  Extensions/                 可选游戏扩展
+    HUD/                      HUDBase
+    Player/                   ControllerBase · PlayerModule
+  ThirdParty/                 内嵌三方（namespace / asmdef 不变）
+    Fsm/                      UnityHFSM（namespace FSM）
+    BehaviorTree/             CleverCrow Fluid BT（namespace CleverCrow.Fluid.BTs）
+    JsonConverter/            Newtonsoft.Json.UnityConverters（+ 自有 AssetReferenceConverter）
+    SerializedCollections/    AYellowpaper（Runtime + Editor 两 asmdef）
+    Plugins/                  DOTween Modules（DG.Tweening）
+Editor/          编辑器扩展（KFramework.Editor asmdef）
+  Drawers/       DisplayNameDrawer · SerializeTypeDrawer · VariantPropertyDrawer · KGizmosDrawer
+  Inspectors/    GameCoreProxyEditor · InfiniteScrollEditor · VersionConfigEditor
+  Utilities/     KEditorGUILayout · KGizmos · KEditorSubscriber
+  ToolsWindow/   工具窗口（IKToolPage / KToolPageRegistry / Pages）
+  ThirdParty/    DOTween 预编译编辑器插件
 Tests/           测试（KFramework.Tests）
+  Runtime/
+Samples~/        示例（Unity 忽略，不参与构建）：CoroutineExample · CoroutineTest · DirectionLightTweener
 Plugins/         UPM 包根预编译插件（DOTween.dll）
 ```
 
-> 分层语义不变：`Foundation → Core → Module → FrameworkExt`（见上方「架构分层」）。
-> 目录与 namespace 的对应目前**不一致**（大量文件仍为全局 namespace / `Framework.*`）——这是「物理分桶先行、命名空间收敛后置」的过渡态；收敛到 `KFramework.*` 见 TODO。
+> 单 asmdef 下 `Core / Unity / Modules / Extensions` 是**目录与命名约定上的分层**，不是编译器强制边界；跨层依赖违规不会在编译期被拦截。新增代码按目录归位，`MonoBehaviour` / `ScriptableObject` 只允许出现在 `Unity/`、`Modules/`、`Extensions/`。
 
 详见 `README.md` 获取完整模块清单、服务接口速查表、架构评价。

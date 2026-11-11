@@ -4,7 +4,7 @@
 
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// KTimer 和 KTimerManager 的纯 C# 测试集。

@@ -5,7 +5,7 @@
 using NUnit.Framework;
 using UnityEngine;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// Variant（通用数据类型容器）的纯 C# 测试集。

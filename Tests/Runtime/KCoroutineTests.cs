@@ -3,10 +3,9 @@
 // KCoroutine / CoroutineHandler / CoroutineManager 纯 C# 测试集
 
 using System.Collections;
-using Framework.Coroutine;
 using NUnit.Framework;
 
-namespace KFramework
+namespace KFramework.Tests
 {
     /// <summary>
     /// KCoroutine（自定义协程系统）的 EditMode 测试集。

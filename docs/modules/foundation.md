@@ -1,6 +1,6 @@
-# 基础层
+# 基础件
 
-Foundation Layer 提供框架最底层的基础设施：单例模式、服务定位、日志、定时器、数学工具等。
+框架底层基础设施分两层：引擎无关的 `Runtime/Core/Services/`（`KSingleton<T>`、`ServiceLocator`、`IService`、`ILogService`）与引擎适配的 `Runtime/Unity/`（`PersistentSingleton`、`EnhancedLog`、`KTime`、`Variant`、`AutoBind` 等）。
 
 ## 类清单
 
