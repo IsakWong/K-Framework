@@ -50,11 +50,9 @@ public class UILoadingPanel : UIPanel
     [Tooltip("音高随机幅度，避免每字音高一致显得机械")]
     public float CaptionBlipPitchRange = 0.06f;
 
-    [Header("色块动画")]
-    public float ShowDuration = 0.35f;
-    public float HideDuration = 0.3f;
-    public Ease ShowEase = Ease.OutCubic;
-    public Ease HideEase = Ease.InCubic;
+    [Header("黑幕横扫")]
+    public float ShowDuration = 0.44f;
+    public float HideDuration = 0.44f;
 
     [Header("内容与进度")]
     [Tooltip("内容淡入时长")]
@@ -123,12 +121,17 @@ public class UILoadingPanel : UIPanel
     private int _shownPercent = -1;
     private int _shownStage = -1;
 
-    // 入场/退出动画的 tween 引用。hide 前先结束 show，避免两者争抢同一属性导致退出动画异常
+    // 入场/退出共用固定遮罩，补间只驱动覆盖率。
+    private UILoadingWipe _wipe;
     private Tween _showTween;
     private Tween _hideTween;
     private Tween _contentTween;
     private Tween _captionTween;
     private Tween[] _dotTweens;
+
+    public bool IsCovering => _showTween != null && _showTween.IsActive() && !_showTween.IsComplete();
+    public bool IsRevealing => _hideTween != null && _hideTween.IsActive() && !_hideTween.IsComplete();
+    public bool IsCovered => _wipe != null && _wipe.Coverage >= 1f && LoadingMask.color.a >= 1f;
 
     /// <summary>
     /// 自本次打开起已展示的时长（秒）。供关闭方据此保证最短展示时间。
@@ -151,6 +154,8 @@ public class UILoadingPanel : UIPanel
     protected override void OnClose()
     {
         _openedAt = float.MinValue;
+        _showTween?.Kill();
+        _hideTween?.Kill();
         _contentTween?.Kill();
         KillDots();
         StopCaption();
@@ -207,22 +212,22 @@ public class UILoadingPanel : UIPanel
 
     /// <summary>
     /// 等待入场动画完整播完（已播完或被中断则立即通过）。
-    /// 供调用方在播放退出动画前调用，保证遮罩先盖满屏幕再滑出。
+    /// 供调用方在播放退出动画前调用，保证遮罩先盖满屏幕再揭开。
     /// </summary>
     public IEnumerator WaitShowComplete()
     {
-        // 只等遮罩滑入：内容淡入属于装饰，不应拖延调用方的场景加载
-        while (_showTween != null && _showTween.IsActive() && !_showTween.IsComplete())
+        // 只等黑幕盖满：内容淡入属于装饰，不应拖延调用方的场景加载。
+        while (IsCovering)
             yield return null;
     }
 
     /// <summary>
     /// <see cref="WaitShowComplete"/> 的 UniTask 版，供 async 调用方直接 await。
-    /// 等待入场滑入动画播完（已播完或被中断则立即通过）。
+    /// 等待横扫盖屏动画播完（已播完或被中断则立即通过）。
     /// </summary>
     public async UniTask WaitShowCompleteAsync()
     {
-        while (_showTween != null && _showTween.IsActive() && !_showTween.IsComplete())
+        while (IsCovering)
             await UniTask.Yield(PlayerLoopTiming.Update);
     }
 
@@ -233,23 +238,22 @@ public class UILoadingPanel : UIPanel
             Debug.LogWarning("[UILoadingPanel] PlayShowAnimation: LoadingMask 为空");
             return;
         }
-        var rt = LoadingMask.rectTransform;
-        float w = rt.rect.width > 1 ? rt.rect.width : Screen.width;
-        Debug.Log($"[UILoadingPanel] 色块从左侧滑入, width={w}, rectWidth={rt.rect.width}");
-        rt.anchoredPosition = new Vector2(-w, 0);
-        // 上一轮渐亮退场可能把 alpha 淡到 0，重新打开时恢复不透明，保证滑入可见
-        LoadingMask.color = WithAlpha(LoadingMask.color, 1f);
         _showTween?.Kill();
-        _showTween = rt.DOAnchorPosX(0, ShowDuration).SetEase(ShowEase);
+        _hideTween?.Kill();
+        EnsureWipe();
+        LoadingMask.color = WithAlpha(LoadingMask.color, 1f);
+        _wipe.SetCoverage(0f, false);
+        _showTween = DOTween.To(() => _wipe.Coverage, value => _wipe.SetCoverage(value, false), 1f, ShowDuration)
+            .SetEase(Ease.Linear).SetUpdate(true);
 
         if (ContentGroup != null)
         {
             ContentGroup.alpha = 0f;
             _contentTween?.Kill();
-            // 遮罩快要铺满时才浮出内容，避免文字跟着色块一起被拖进来
+            // 完全盖满后才浮出内容，文字不跟随横扫边缘移动。
             _contentTween = ContentGroup.DOFade(1f, ContentFadeInDuration)
-                .SetDelay(Mathf.Max(0f, ShowDuration - 0.1f))
-                .SetEase(Ease.OutQuad);
+                .SetDelay(Mathf.Max(0f, ShowDuration))
+                .SetEase(Ease.OutQuad).SetUpdate(true);
         }
 
         PlayDots();
@@ -263,35 +267,44 @@ public class UILoadingPanel : UIPanel
             onComplete?.Invoke();
             return;
         }
-        var rt = LoadingMask.rectTransform;
-        float w = rt.rect.width > 1 ? rt.rect.width : Screen.width;
-        Debug.Log($"[UILoadingPanel] 色块向右侧滑出, width={w}");
-
-        // 先结束仍在进行的入场动画，避免它与退出 tween 争抢同一属性，
-        // 否则退出动画会被入场动画拉回/打断，表现为"没反向滑出就直接消失"
-        _showTween?.Kill();
+        // 直接请求退场时也先完成盖屏，避免把尚未盖满的区域瞬间翻到另一侧。
+        _showTween?.Complete();
         _hideTween?.Kill();
+        EnsureWipe();
+        _wipe.SetCoverage(1f, true);
         KillDots();
 
         if (ContentGroup != null)
         {
             _contentTween?.Kill();
-            _contentTween = ContentGroup.DOFade(0f, ContentFadeOutDuration).SetEase(Ease.InQuad);
+            _contentTween = ContentGroup.DOFade(0f, ContentFadeOutDuration).SetEase(Ease.InQuad).SetUpdate(true);
         }
 
-        _hideTween = rt.DOAnchorPosX(w, HideDuration).SetEase(HideEase)
+        _hideTween = DOTween.To(() => _wipe.Coverage, value => _wipe.SetCoverage(value, true), 0f, HideDuration)
+            .SetDelay(ContentGroup != null ? Mathf.Max(0f, ContentFadeOutDuration) : 0f)
+            .SetEase(Ease.Linear).SetUpdate(true)
             .OnComplete(() => onComplete?.Invoke());
     }
 
+    private void EnsureWipe()
+    {
+        LoadingMask.rectTransform.anchoredPosition = Vector2.zero;
+        if (_wipe == null)
+            _wipe = LoadingMask.GetComponent<UILoadingWipe>() ?? LoadingMask.gameObject.AddComponent<UILoadingWipe>();
+    }
+
     /// <summary>
-    /// 滑出色块并等待退场动画完成后关闭面板（幂等：重复调用只会关一次）。
+    /// 横扫揭屏并等待退场动画完成后关闭面板（幂等：重复调用只会关一次）。
     /// 对应 SceneLoadGate.RevealAsync 的「关」动作。
     /// </summary>
     public async UniTask RevealAsync()
     {
-        var tcs = new UniTaskCompletionSource();
-        PlayHideAnimation(() => tcs.TrySetResult());
-        await tcs.Task;
+        await WaitShowCompleteAsync();
+        if (!IsRevealing)
+            PlayHideAnimation();
+        var tween = _hideTween;
+        while (tween != null && tween.IsActive() && !tween.IsComplete())
+            await UniTask.Yield(PlayerLoopTiming.Update);
 
         var ui = UIService.Instance;
         if (ui != null && ui.IsOpen(this))
@@ -299,8 +312,8 @@ public class UILoadingPanel : UIPanel
     }
 
     /// <summary>
-    /// 渐黑盖屏：取消滑入、立刻铺满全屏并隐藏内容，在 duration 内把遮罩淡到全黑。
-    /// 对应 SceneLoadGate.CoverFadeAsync，用于传送等不播滑入的快速切换。
+    /// 渐黑盖屏：取消横扫、立刻铺满全屏并隐藏内容，在 duration 内把遮罩淡到全黑。
+    /// 对应 SceneLoadGate.CoverFadeAsync，用于传送等不播横扫的快速切换。
     /// </summary>
     public async UniTask CoverFadeAsync(float duration)
     {
@@ -318,7 +331,8 @@ public class UILoadingPanel : UIPanel
         if (ContentGroup != null)
             ContentGroup.alpha = 0f;
 
-        LoadingMask.rectTransform.anchoredPosition = Vector2.zero;
+        EnsureWipe();
+        _wipe.SetCoverage(1f, false);
         LoadingMask.color = WithAlpha(LoadingMask.color, 0f);
 
         if (duration <= 0f)
@@ -503,6 +517,7 @@ public class UILoadingPanel : UIPanel
             _dotTweens[i] = dot.DOFade(DotMinAlpha, DotFadeDuration)
                 .SetDelay(i * DotStagger)
                 .SetEase(Ease.InOutSine)
+                .SetUpdate(true)
                 .SetLoops(-1, LoopType.Yoyo);
         }
     }
