@@ -20,7 +20,7 @@ public class HUDBase : MonoBehaviour
     private void Awake()
     {
         _rectTransform = GetComponent<RectTransform>();
-        _canvas = CanvasInstance.Instance.BehaviourInstance;
+        _canvas = UIService.Instance.OverlayCanvas;
         Debug.Assert(_canvas);
         _parentRectTransform = transform.parent as RectTransform;
         _mainCamera = Camera.main;
@@ -71,7 +71,7 @@ public class HUDBase : MonoBehaviour
     public static HUDBase Spawn(GameObject origin, Transform target)
     {
         HUDBase hud = null;
-        GameObject inst = Instantiate(origin, CanvasInstance.Instance.HUDParent);
+        GameObject inst = Instantiate(origin, UIService.Instance.HudRoot);
         hud = inst.GetComponent<HUDBase>();
         if (!hud)
             inst.AddComponent<HUDBase>();

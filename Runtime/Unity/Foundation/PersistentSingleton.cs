@@ -11,7 +11,7 @@ namespace KFramework
     ///   - InitializeSingleton：场景版本永远优先——如已有 auto-created bare instance，销毁它，用场景的替换
     ///   - DontDestroyOnLoad：跨场景存活
     ///
-    /// 适用于 CanvasInstance、CameraInstance（场景配置）、UIService、SoundService（自动创建）等所有跨场景单例。
+    /// 适用于 CameraInstance（场景配置）、UIService、SoundService（自动创建）等所有跨场景单例。
     /// </summary>
     public class PersistentSingleton<T> : MonoBehaviour, IService where T : Component
     {
@@ -104,7 +104,7 @@ namespace KFramework
             {
                 // 已有实例 → 由子类决定接管策略。
                 // 返回 true：销毁旧实例，用本场景版本替换（默认，场景版本优先）。
-                // 返回 false：保留旧实例，本场景对象由基类销毁（如 CanvasInstance 合并子物体后退出）。
+                // 返回 false：保留旧实例，本场景对象由基类销毁。
                 if (TryReplaceExisting(instance))
                 {
                     instance = this as T;

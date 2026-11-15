@@ -43,7 +43,7 @@ public static class VfxAPI
     {
         var effectBase = VfxService.Instance.Get(gameObject, worldPosition,
             direction == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(direction),
-            CanvasInstance.Instance.BehaviourInstance.transform);
+            UIService.Instance.OverlayCanvas.transform);
         effectBase.gameObject.layer = LayerMask.NameToLayer("UI");
         return effectBase;
     }

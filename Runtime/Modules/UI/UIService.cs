@@ -62,6 +62,11 @@ public class UIService : PersistentSingleton<UIService>, IUIService
         InitOverlayCanvas();
     }
 
+    private void Start()
+    {
+        BindCanvasCamera();
+    }
+
     protected override void OnServiceInit()
     {
         ServiceLocator.Register<IUIService>(this);
@@ -79,23 +84,66 @@ public class UIService : PersistentSingleton<UIService>, IUIService
 
     // ─────────── Canvas / 层初始化 ───────────
 
+    /// <summary>
+    /// 动态创建根 Canvas（ScreenSpaceCamera + CanvasScaler + GraphicRaycaster）。
+    /// 根 Canvas 与各 Layer Canvas 全部由 UIService 持有，场景中不再摆放 Canvas 对象。
+    /// </summary>
     private void InitOverlayCanvas()
     {
-        if (CanvasInstance.Instance == null) return;
-        _overlayCanvas = CanvasInstance.Instance.BehaviourInstance;
-        if (!_overlayCanvas) return;
+        if (_overlayCanvas) return;
 
-        _overlayCanvas.gameObject.SetActive(true);
-        DontDestroyOnLoad(_overlayCanvas.gameObject);
+        var settings = ResolveSettings();
+        var renderMode = settings != null ? settings.CanvasRenderMode : RenderMode.ScreenSpaceCamera;
+        var referenceResolution = settings != null ? settings.ReferenceResolution : new Vector2(1920f, 1080f);
+        var matchWidthOrHeight = settings != null ? settings.MatchWidthOrHeight : 1f;
+        var sortingLayerName = settings != null ? settings.SortingLayerName : "AboveUI";
+        var planeDistance = settings != null ? settings.PlaneDistance : 1f;
+
+        var go = new GameObject("[UI Canvas]", typeof(RectTransform));
+        DontDestroyOnLoad(go);
+
+        _overlayCanvas = go.AddComponent<Canvas>();
+        _overlayCanvas.renderMode = renderMode;
+        _overlayCanvas.planeDistance = planeDistance;
+        _overlayCanvas.sortingLayerID = SortingLayer.NameToID(sortingLayerName);
+        _overlayCanvas.additionalShaderChannels = AdditionalCanvasShaderChannels.TexCoord1
+            | AdditionalCanvasShaderChannels.Normal
+            | AdditionalCanvasShaderChannels.Tangent;
+
+        var scaler = go.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = referenceResolution;
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = matchWidthOrHeight;
+
+        go.AddComponent<GraphicRaycaster>();
 
         EnsureLayerRoots();
+    }
 
-        // 场景中直接挂在 Canvas 下的 Panel，按各自 Layer 入容器
-        var panels = _overlayCanvas.transform.GetComponentsInChildren<UIPanel>();
-        foreach (var p in panels)
+    /// <summary>
+    /// 读取根 Canvas 配置。UISettings 缺失时返回 null，由调用方使用内置默认值，
+    /// 保证框架在未配置该资产的项目中也能独立运行。
+    /// </summary>
+    private static UISettings ResolveSettings()
+    {
+        try
         {
-            PushAsync(p).Forget();
+            return ConfigService.Instance.GetConfig<UISettings>();
         }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>ScreenSpaceCamera 模式必须绑定相机，否则 UI 不渲染。Overlay 模式忽略相机。</summary>
+    private void BindCanvasCamera()
+    {
+        if (!_overlayCanvas || _overlayCanvas.renderMode == RenderMode.ScreenSpaceOverlay) return;
+        if (_overlayCanvas.worldCamera != null) return;
+        if (ServiceLocator.TryGet<ICameraService>(out var cameraService) && cameraService.BehaviourInstance != null)
+            _overlayCanvas.worldCamera = cameraService.BehaviourInstance;
     }
 
     /// <summary>
@@ -118,6 +166,7 @@ public class UIService : PersistentSingleton<UIService>, IUIService
 
             var canvas = go.AddComponent<Canvas>();
             canvas.overrideSorting = true;
+            canvas.sortingLayerID = _overlayCanvas.sortingLayerID;
             canvas.sortingOrder = SortingOrderOf(layer);
             go.AddComponent<GraphicRaycaster>();
 
@@ -136,6 +185,7 @@ public class UIService : PersistentSingleton<UIService>, IUIService
 
     private RectTransform GetLayerRoot(UILayer layer)
     {
+        if (!_overlayCanvas) InitOverlayCanvas();
         if (_layerRoots.Count == 0) EnsureLayerRoots();
         if (_layerRoots.TryGetValue(layer, out var root)) return root;
         return _overlayCanvas != null ? _overlayCanvas.transform as RectTransform : null;
@@ -144,8 +194,19 @@ public class UIService : PersistentSingleton<UIService>, IUIService
     private void EnsureLayerParent(UIPanel panel)
     {
         var root = GetLayerRoot(panel.Layer);
-        if (root != null && panel.transform.parent != root)
+        if (root == null) return;
+        if (panel.transform.parent != root)
             panel.transform.SetParent(root, false);
+
+        // 排序只由 Layer Canvas 决定。保留面板内部用于分批重建的多 Canvas，
+        // 但禁用预制体遗留的独立排序，避免越过 Service / Popup 等框架层。
+        foreach (var canvas in panel.GetComponentsInChildren<Canvas>(true))
+        {
+            canvas.overrideSorting = false;
+            // Graphic 注册在最近的 Canvas 上，父层的 Raycaster 无法代收子 Canvas 的射线。
+            if (!canvas.TryGetComponent<GraphicRaycaster>(out _))
+                canvas.gameObject.AddComponent<GraphicRaycaster>();
+        }
     }
 
     public Canvas OverlayCanvas
@@ -153,9 +214,13 @@ public class UIService : PersistentSingleton<UIService>, IUIService
         get
         {
             if (!_overlayCanvas) InitOverlayCanvas();
+            BindCanvasCamera();
             return _overlayCanvas;
         }
     }
+
+    /// <summary>Hud 层根节点。世界跟踪 HUD（HUDBase）挂在这里，层级随 Hud 层。</summary>
+    public RectTransform HudRoot => GetLayerRoot(UILayer.Hud);
 
     // ─────────── 资源加载 ───────────
 
